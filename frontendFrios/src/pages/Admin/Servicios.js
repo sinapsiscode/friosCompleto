@@ -1,11 +1,23 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
 import ServicioModal from '../../components/Forms/ServicioModal';
 import CalendarioServicios from '../../components/Common/CalendarioServicios';
 import { showConfirm, showAlert } from '../../utils/sweetAlert';
+import servicioService from '../../services/servicio.service';
+import clienteService from '../../services/cliente.service';
+import tecnicoService from '../../services/tecnico.service';
 
 const Servicios = () => {
   const { data, updateItem } = useContext(DataContext);
+  
+  // Estados para datos desde APIs
+  const [servicios, setServicios] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [tecnicos, setTecnicos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Estados para filtros y UI
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState('todos');
   const [filterTecnico, setFilterTecnico] = useState('todos');
@@ -24,10 +36,67 @@ const Servicios = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedServicioForDetails, setSelectedServicioForDetails] = useState(null);
 
+  // Cargar datos desde APIs
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        console.log('🌐 Cargando servicios desde el backend...');
+        setLoading(true);
+        setError(null);
+        
+        // Cargar todos los datos en paralelo
+        const [serviciosResponse, clientesResponse, tecnicosResponse] = await Promise.all([
+          servicioService.getAll({ limit: 100 }),
+          clienteService.getAll({ limit: 100 }),
+          tecnicoService.getAll({ limit: 100 })
+        ]);
+        
+        console.log('✅ Servicios cargados:', serviciosResponse.data?.length || 0);
+        console.log('✅ Clientes cargados:', clientesResponse.data?.length || 0);
+        console.log('✅ Técnicos cargados:', tecnicosResponse.data?.length || 0);
+        
+        setServicios(serviciosResponse.data || []);
+        setClientes(clientesResponse.data || []);
+        setTecnicos(tecnicosResponse.data || []);
+        
+      } catch (error) {
+        console.error('❌ Error cargando datos:', error);
+        setError('Error al cargar los datos');
+        showAlert('Error al cargar los servicios', 'error');
+        
+        // Fallback a localStorage si la API falla
+        setServicios(data.servicios || []);
+        setClientes(data.clientes || []);
+        setTecnicos(data.tecnicos || []);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    cargarDatos();
+  }, [data.servicios, data.clientes, data.tecnicos]);
+
+  // Función para recargar servicios
+  const recargarServicios = async () => {
+    try {
+      console.log('🔄 Recargando servicios...');
+      const response = await servicioService.getAll({ limit: 100 });
+      setServicios(response.data || []);
+      console.log('✅ Servicios recargados');
+    } catch (error) {
+      console.error('❌ Error recargando servicios:', error);
+    }
+  };
+
+  // Usar servicios desde API o fallback a localStorage
+  const serviciosActuales = servicios.length > 0 ? servicios : (data.servicios || []);
+  const clientesActuales = clientes.length > 0 ? clientes : (data.clientes || []);
+  const tecnicosActuales = tecnicos.length > 0 ? tecnicos : (data.tecnicos || []);
+
   // Primero filtrar los servicios
-  const filteredServiciosBase = data.servicios.filter(servicio => {
-    const cliente = data.clientes.find(c => c.id === servicio.clienteId);
-    const tecnico = data.tecnicos.find(t => t.id === servicio.tecnicoId);
+  const filteredServiciosBase = serviciosActuales.filter(servicio => {
+    const cliente = clientesActuales.find(c => c.id === servicio.clienteId);
+    const tecnico = tecnicosActuales.find(t => t.id === servicio.tecnicoId);
     const nombreCliente = cliente?.razonSocial || `${cliente?.nombre} ${cliente?.apellido}` || '';
     const nombreTecnico = `${tecnico?.nombre} ${tecnico?.apellido}` || '';
     
@@ -62,8 +131,16 @@ const Servicios = () => {
     setShowModal(true);
   };
 
-  const handleIniciarServicio = (id) => {
-    updateItem('servicios', id, { estado: 'proceso' });
+  const handleIniciarServicio = async (id) => {
+    try {
+      console.log('🚀 Iniciando servicio:', id);
+      await servicioService.iniciar(id);
+      showAlert('Servicio iniciado exitosamente', 'success');
+      await recargarServicios();
+    } catch (error) {
+      console.error('❌ Error al iniciar servicio:', error);
+      showAlert('Error al iniciar el servicio', 'error');
+    }
   };
 
   const handleCompletarServicio = async (id) => {
@@ -75,10 +152,18 @@ const Servicios = () => {
     );
     
     if (result.isConfirmed) {
-      updateItem('servicios', id, { 
-        estado: 'completado',
-        fechaCompletado: new Date().toISOString()
-      });
+      try {
+        console.log('✅ Completando servicio:', id);
+        await servicioService.completar(id, {
+          observacionesFinales: 'Servicio completado desde panel administrativo',
+          fechaCompletado: new Date().toISOString()
+        });
+        showAlert('Servicio completado exitosamente', 'success');
+        await recargarServicios();
+      } catch (error) {
+        console.error('❌ Error al completar servicio:', error);
+        showAlert('Error al completar el servicio', 'error');
+      }
     }
   };
 
@@ -88,20 +173,20 @@ const Servicios = () => {
     setShowCancelModal(true);
   };
   
-  const confirmCancelServicio = () => {
+  const confirmCancelServicio = async () => {
     if (servicioToCancel && motivoCancelacion.trim()) {
-      updateItem('servicios', servicioToCancel.id, { 
-        estado: 'cancelado',
-        fechaCancelado: new Date().toISOString(),
-        motivoCancelacion: motivoCancelacion.trim(),
-        horaFin: new Date().toISOString()
-      });
-      
-      showAlert('Servicio cancelado exitosamente', 'warning');
-      
-      setShowCancelModal(false);
-      setServicioToCancel(null);
-      setMotivoCancelacion('');
+      try {
+        console.log('❌ Cancelando servicio:', servicioToCancel.id);
+        await servicioService.cancelar(servicioToCancel.id, motivoCancelacion.trim());
+        showAlert('Servicio cancelado exitosamente', 'warning');
+        await recargarServicios();
+        setShowCancelModal(false);
+        setServicioToCancel(null);
+        setMotivoCancelacion('');
+      } catch (error) {
+        console.error('❌ Error al cancelar servicio:', error);
+        showAlert('Error al cancelar el servicio', 'error');
+      }
     }
   };
 
@@ -112,14 +197,20 @@ const Servicios = () => {
     setShowAssignModal(true);
   };
 
-  const handleConfirmAssign = () => {
+  const handleConfirmAssign = async () => {
     if (selectedTecnicoId && servicioToAssign) {
-      updateItem('servicios', servicioToAssign.id, { 
-        tecnicoId: parseInt(selectedTecnicoId)
-      });
-      setShowAssignModal(false);
-      setServicioToAssign(null);
-      setSelectedTecnicoId('');
+      try {
+        console.log('👨‍🔧 Asignando técnico:', selectedTecnicoId, 'al servicio:', servicioToAssign.id);
+        await servicioService.asignarTecnico(servicioToAssign.id, parseInt(selectedTecnicoId));
+        showAlert('Técnico asignado exitosamente', 'success');
+        await recargarServicios();
+        setShowAssignModal(false);
+        setServicioToAssign(null);
+        setSelectedTecnicoId('');
+      } catch (error) {
+        console.error('❌ Error al asignar técnico:', error);
+        showAlert('Error al asignar técnico', 'error');
+      }
     }
   };
 
@@ -185,6 +276,18 @@ const Servicios = () => {
     setSelectedServicioForDetails(servicio);
     setShowDetailsModal(true);
   };
+
+  // Mostrar loading mientras cargan los datos
+  if (loading) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Cargando servicios...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -318,7 +421,7 @@ const Servicios = () => {
             className="py-3 px-4 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm font-medium cursor-pointer transition-all duration-300 min-w-[150px] hover:border-gray-400 focus:outline-none focus:border-primary focus:shadow-[0_0_0_3px_var(--primary-alpha-10)]"
           >
             <option value="todos">Todos</option>
-            {data.tecnicos.map(tecnico => (
+            {tecnicosActuales.map(tecnico => (
               <option key={tecnico.id} value={tecnico.id}>
                 {tecnico.nombre} {tecnico.apellido}
               </option>
@@ -515,7 +618,10 @@ const Servicios = () => {
 
       <ServicioModal
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={() => {
+          setShowModal(false);
+          recargarServicios(); // Recargar después de crear/editar
+        }}
         servicio={selectedServicio}
       />
 
@@ -541,7 +647,7 @@ const Servicios = () => {
                   </p>
                   {servicioToAssign.tecnicoId && (
                     <p className="text-xs text-amber-600 mt-1">
-                      Técnico actual: {data.tecnicos.find(t => t.id === servicioToAssign.tecnicoId)?.nombre} {data.tecnicos.find(t => t.id === servicioToAssign.tecnicoId)?.apellido}
+                      Técnico actual: {tecnicosActuales.find(t => t.id === servicioToAssign.tecnicoId)?.nombre} {tecnicosActuales.find(t => t.id === servicioToAssign.tecnicoId)?.apellido}
                     </p>
                   )}
                 </div>
@@ -558,9 +664,9 @@ const Servicios = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
               >
                 <option value="">-- Seleccione un técnico --</option>
-                {data.tecnicos.map(tecnico => (
+                {tecnicosActuales.map(tecnico => (
                   <option key={tecnico.id} value={tecnico.id}>
-                    {tecnico.nombre} {tecnico.apellido} - {tecnico.especialidad}
+                    {tecnico.nombre} {tecnico.apellido} {tecnico.especialidad ? `- ${tecnico.especialidad}` : ''}
                   </option>
                 ))}
               </select>
@@ -614,7 +720,7 @@ const Servicios = () => {
                   </p>
                   {servicioToCancel.tecnicoId && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Técnico asignado: {data.tecnicos.find(t => t.id === servicioToCancel.tecnicoId)?.nombre} {data.tecnicos.find(t => t.id === servicioToCancel.tecnicoId)?.apellido}
+                      Técnico asignado: {tecnicosActuales.find(t => t.id === servicioToCancel.tecnicoId)?.nombre} {tecnicosActuales.find(t => t.id === servicioToCancel.tecnicoId)?.apellido}
                     </p>
                   )}
                 </div>
@@ -684,9 +790,9 @@ const Servicios = () => {
             </div>
             <div className="p-6 overflow-y-auto" style={{maxHeight: 'calc(90vh - 200px)'}}>
               {(() => {
-                const cliente = data.clientes.find(c => c.id === selectedServicioForDetails.clienteId);
-                const tecnico = data.tecnicos.find(t => t.id === selectedServicioForDetails.tecnicoId);
-                const equipos = data.equipos.filter(e => selectedServicioForDetails.equipos.includes(e.id));
+                const cliente = clientesActuales.find(c => c.id === selectedServicioForDetails.clienteId);
+                const tecnico = tecnicosActuales.find(t => t.id === selectedServicioForDetails.tecnicoId);
+                const equipos = data.equipos?.filter(e => selectedServicioForDetails.equipos?.includes(e.id)) || [];
                 
                 return (
                   <div className="space-y-6">

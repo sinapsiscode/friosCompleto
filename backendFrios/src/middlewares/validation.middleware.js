@@ -383,6 +383,89 @@ const schemas = {
     ubicacion: Joi.string().optional()
   }),
 
+  // Servicios
+  createServicio: Joi.object({
+    clienteId: Joi.number().integer().positive().required().messages({
+      'any.required': 'El cliente es requerido',
+      'number.base': 'El cliente debe ser válido'
+    }),
+    tecnicoId: Joi.number().integer().positive().optional().allow(null).messages({
+      'number.base': 'El técnico debe ser válido'
+    }),
+    equipoId: Joi.number().integer().positive().optional().allow(null).messages({
+      'number.base': 'El equipo debe ser válido'
+    }),
+    tipoServicio: Joi.string().required().messages({
+      'any.required': 'El tipo de servicio es requerido',
+      'string.empty': 'El tipo de servicio no puede estar vacío'
+    }),
+    descripcion: Joi.string().min(10).max(1000).required().messages({
+      'any.required': 'La descripción es requerida',
+      'string.min': 'La descripción debe tener al menos 10 caracteres',
+      'string.max': 'La descripción no puede exceder 1000 caracteres'
+    }),
+    observaciones: Joi.string().max(500).optional().allow('', null),
+    fechaProgramada: Joi.date().optional().allow(null),
+    prioridad: Joi.string().valid('BAJA', 'MEDIA', 'ALTA', 'URGENTE').default('MEDIA'),
+    estado: Joi.string().valid('PENDIENTE', 'PROCESO', 'COMPLETADO', 'CANCELADO').default('PENDIENTE'),
+    detalles: Joi.object().optional(),
+    equiposIds: Joi.array().items(Joi.number().integer().positive()).optional() // Para múltiples equipos
+  }),
+
+  updateServicio: Joi.object({
+    clienteId: Joi.number().integer().positive().optional(),
+    tecnicoId: Joi.number().integer().positive().optional().allow(null),
+    equipoId: Joi.number().integer().positive().optional().allow(null),
+    tipoServicio: Joi.string().optional(),
+    descripcion: Joi.string().min(10).max(1000).optional(),
+    observaciones: Joi.string().max(500).optional().allow('', null),
+    fechaProgramada: Joi.date().optional().allow(null),
+    fechaInicio: Joi.date().optional().allow(null),
+    fechaCompletado: Joi.date().optional().allow(null),
+    prioridad: Joi.string().valid('BAJA', 'MEDIA', 'ALTA', 'URGENTE').optional(),
+    estado: Joi.string().valid('PENDIENTE', 'PROCESO', 'COMPLETADO', 'CANCELADO').optional(),
+    motivoCancelacion: Joi.string().max(500).optional().allow('', null),
+    detalles: Joi.object().optional(),
+    evaluacion: Joi.object().optional(),
+    equiposIds: Joi.array().items(Joi.number().integer().positive()).optional()
+  }),
+
+  asignarTecnico: Joi.object({
+    tecnicoId: Joi.number().integer().positive().required().messages({
+      'any.required': 'El técnico es requerido',
+      'number.base': 'El técnico debe ser válido'
+    }),
+    fechaProgramada: Joi.date().optional(),
+    observaciones: Joi.string().max(500).optional()
+  }),
+
+  completarServicio: Joi.object({
+    observacionesFinales: Joi.string().max(1000).optional(),
+    detallesCompletado: Joi.object().optional(),
+    evaluacionTecnico: Joi.object().optional(),
+    fechaCompletado: Joi.date().optional()
+  }),
+
+  cancelarServicio: Joi.object({
+    motivo: Joi.string().min(5).max(500).required().messages({
+      'any.required': 'El motivo de cancelación es requerido',
+      'string.min': 'El motivo debe tener al menos 5 caracteres'
+    }),
+    observaciones: Joi.string().max(500).optional()
+  }),
+
+  servicioQuery: Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(10),
+    search: Joi.string().max(100).optional(),
+    estado: Joi.string().valid('PENDIENTE', 'PROCESO', 'COMPLETADO', 'CANCELADO').optional(),
+    tecnicoId: Joi.number().integer().positive().optional(),
+    clienteId: Joi.number().integer().positive().optional(),
+    fechaInicio: Joi.date().optional(),
+    fechaFin: Joi.date().optional(),
+    prioridad: Joi.string().valid('BAJA', 'MEDIA', 'ALTA', 'URGENTE').optional()
+  }),
+
   // Parámetros de ID
   idParam: Joi.object({
     id: Joi.alternatives().try(

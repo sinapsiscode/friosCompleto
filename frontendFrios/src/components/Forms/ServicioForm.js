@@ -2,6 +2,9 @@ import React, { useState, useContext, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
 import AuthContext from '../../context/AuthContext';
 import { showAlert } from '../../utils/sweetAlert';
+import servicioService from '../../services/servicio.service';
+import clienteService from '../../services/cliente.service';
+import tecnicoService from '../../services/tecnico.service';
 
 const ServicioForm = ({ servicio, onClose, activeTab = 0 }) => {
   const { data, addItem, updateItem, getNextId } = useContext(DataContext);
@@ -11,23 +14,101 @@ const ServicioForm = ({ servicio, onClose, activeTab = 0 }) => {
     tecnicoId: '',
     fecha: new Date().toISOString().split('T')[0],
     hora: '09:00',
-    tipo: 'preventivo',
+    tipo: 'Preventivo', // Valor corregido
     descripcion: '',
     equipos: [],
-    prioridad: 'media',
+    prioridad: 'MEDIA', // Valor corregido
     observaciones: ''
   });
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+  const [clientes, setClientes] = useState([]);
+  const [tecnicos, setTecnicos] = useState([]);
+  const [equiposCliente, setEquiposCliente] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // Cargar datos iniciales desde APIs
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        console.log('📋 Cargando clientes y técnicos...');
+        setLoading(true);
+        
+        // Cargar clientes y técnicos en paralelo
+        const [clientesResponse, tecnicosResponse] = await Promise.all([
+          clienteService.getAll({ limit: 100 }),
+          tecnicoService.getAll({ limit: 100 })
+        ]);
+        
+        console.log('✅ Clientes cargados:', clientesResponse.data?.length || 0);
+        console.log('✅ Técnicos cargados:', tecnicosResponse.data?.length || 0);
+        
+        setClientes(clientesResponse.data || []);
+        setTecnicos(tecnicosResponse.data || []);
+        
+      } catch (error) {
+        console.error('❌ Error cargando datos:', error);
+        showAlert('Error al cargar datos iniciales', 'error');
+        
+        // Fallback a localStorage si la API falla
+        setClientes(data.clientes || []);
+        setTecnicos(data.tecnicos || []);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    cargarDatos();
+  }, [data.clientes, data.tecnicos]);
+
+  // Cargar equipos cuando se selecciona un cliente
+  useEffect(() => {
+    const cargarEquipos = async () => {
+      if (formData.clienteId) {
+        try {
+          console.log('🔧 Cargando equipos del cliente:', formData.clienteId);
+          
+          // Buscar cliente en la lista cargada
+          const cliente = clientes.find(c => c.id === parseInt(formData.clienteId));
+          setClienteSeleccionado(cliente);
+          
+          if (cliente && cliente.equipos) {
+            console.log('✅ Equipos encontrados:', cliente.equipos.length);
+            setEquiposCliente(cliente.equipos);
+          } else {
+            // Si no están en la respuesta, cargar por separado
+            // TODO: Implementar API específica para equipos del cliente
+            setEquiposCliente([]);
+          }
+        } catch (error) {
+          console.error('❌ Error cargando equipos:', error);
+          setEquiposCliente([]);
+        }
+      } else {
+        setEquiposCliente([]);
+        setClienteSeleccionado(null);
+      }
+    };
+    
+    cargarEquipos();
+  }, [formData.clienteId, clientes]);
+
+  // Cargar datos del servicio existente
   useEffect(() => {
     if (servicio) {
+      console.log('🔄 Cargando datos del servicio existente:', servicio);
       setFormData({
-        ...servicio,
-        fecha: servicio.fecha.split('T')[0]
+        clienteId: servicio.clienteId || '',
+        tecnicoId: servicio.tecnicoId || '',
+        fecha: servicio.fechaProgramada ? new Date(servicio.fechaProgramada).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        hora: servicio.fechaProgramada ? new Date(servicio.fechaProgramada).toTimeString().slice(0, 5) : '09:00',
+        tipo: servicio.tipoServicio || 'Preventivo',
+        descripcion: servicio.descripcion || '',
+        equipos: servicio.equiposServicio?.map(es => es.equipoId) || [],
+        prioridad: servicio.prioridad || 'MEDIA',
+        observaciones: servicio.observaciones || ''
       });
-      setClienteSeleccionado(data.clientes.find(c => c.id === servicio.clienteId));
     }
-  }, [servicio, data.clientes]);
+  }, [servicio]);
 
   useEffect(() => {
     if (formData.clienteId) {
@@ -53,7 +134,79 @@ const ServicioForm = ({ servicio, onClose, activeTab = 0 }) => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    console.log('🚀 === INICIO SUBMIT SERVICIO ===');
+    console.log('📝 Datos del formulario:', formData);
+    
+    // Validaciones básicas
+    if (!formData.clienteId) {
+      showAlert('Por favor seleccione un cliente', 'warning');
+      return;
+    }
+    
+    if (!formData.descripcion || formData.descripcion.length < 10) {
+      showAlert('Por favor ingrese una descripción de al menos 10 caracteres', 'warning');
+      return;
+    }
+
+    try {
+      const servicioData = {
+        clienteId: parseInt(formData.clienteId),
+        tecnicoId: formData.tecnicoId ? parseInt(formData.tecnicoId) : null,
+        tipo: formData.tipo, // Se mapea a tipoServicio en el service
+        descripcion: formData.descripcion,
+        fecha: formData.fecha,
+        hora: formData.hora,
+        prioridad: formData.prioridad,
+        observaciones: formData.observaciones,
+        equipos: formData.equipos, // Array de IDs de equipos
+        solicitadoPor: user.role || 'ADMIN'
+      };
+
+      console.log('📤 Enviando datos al servicio:', servicioData);
+
+      let resultado;
+      if (servicio) {
+        // Actualizar servicio existente
+        console.log('🔄 Actualizando servicio existente...');
+        resultado = await servicioService.update(servicio.id, servicioData);
+      } else {
+        // Crear nuevo servicio
+        console.log('✨ Creando nuevo servicio...');
+        resultado = await servicioService.create(servicioData);
+      }
+
+      console.log('✅ Respuesta del servicio:', resultado);
+      
+      if (resultado.success) {
+        showAlert(
+          servicio ? 'Servicio actualizado exitosamente' : 'Servicio creado exitosamente',
+          'success'
+        );
+        
+        // Recargar datos en el contexto
+        if (window.location.pathname.includes('/servicios')) {
+          window.location.reload(); // Temporal hasta actualizar DataContext
+        }
+        
+        onClose();
+      } else {
+        throw new Error(resultado.message || 'Error en la operación');
+      }
+    } catch (error) {
+      console.error('❌ Error al guardar servicio:', error);
+      showAlert(
+        error.response?.data?.message || error.message || 'Error al guardar el servicio',
+        'error'
+      );
+    }
+    
+    console.log('🏁 === FIN SUBMIT SERVICIO ===');
+  };
+
+  // Función temporal para mantener compatibilidad con localStorage (será removida)
+  const handleSubmitOld = (e) => {
     e.preventDefault();
     
     if (!formData.clienteId || !formData.tecnicoId || formData.equipos.length === 0) {
@@ -104,10 +257,6 @@ const ServicioForm = ({ servicio, onClose, activeTab = 0 }) => {
     onClose();
   };
 
-  const equiposCliente = clienteSeleccionado 
-    ? data.equipos.filter(e => clienteSeleccionado.equipos?.includes(e.id))
-    : [];
-
   return (
     <form onSubmit={handleSubmit} className="servicio-form">
       <div className="form-section" style={{ display: activeTab === 0 ? 'block' : 'none' }}>
@@ -120,10 +269,10 @@ const ServicioForm = ({ servicio, onClose, activeTab = 0 }) => {
               value={formData.clienteId} 
               onChange={handleChange}
               required
-              disabled={!!servicio}
+              disabled={!!servicio || loading}
             >
-              <option value="">Seleccione cliente</option>
-              {data.clientes.map(cliente => (
+              <option value="">{loading ? 'Cargando clientes...' : 'Seleccione cliente'}</option>
+              {clientes.map(cliente => (
                 <option key={cliente.id} value={cliente.id}>
                   {cliente.razonSocial || `${cliente.nombre} ${cliente.apellido}`}
                 </option>
@@ -131,18 +280,18 @@ const ServicioForm = ({ servicio, onClose, activeTab = 0 }) => {
             </select>
           </div>
           <div className="form-group">
-            <label htmlFor="tecnicoId">Técnico Asignado: *</label>
+            <label htmlFor="tecnicoId">Técnico Asignado:</label>
             <select 
               id="tecnicoId"
               name="tecnicoId" 
               value={formData.tecnicoId} 
               onChange={handleChange}
-              required
+              disabled={loading}
             >
-              <option value="">Seleccione técnico</option>
-              {data.tecnicos.map(tecnico => (
+              <option value="">{loading ? 'Cargando técnicos...' : 'Seleccione técnico (opcional)'}</option>
+              {tecnicos.map(tecnico => (
                 <option key={tecnico.id} value={tecnico.id}>
-                  {tecnico.nombre} {tecnico.apellido} - {tecnico.especialidad}
+                  {tecnico.nombre} {tecnico.apellido} {tecnico.especialidad ? `- ${tecnico.especialidad}` : ''}
                 </option>
               ))}
             </select>
@@ -184,8 +333,8 @@ const ServicioForm = ({ servicio, onClose, activeTab = 0 }) => {
               onChange={handleChange}
               required
             >
-              <option value="preventivo">Preventivo</option>
-              <option value="correctivo">Correctivo</option>
+              <option value="Preventivo">Preventivo</option>
+              <option value="Correctivo">Correctivo</option>
             </select>
           </div>
           <div className="form-group">
@@ -197,9 +346,10 @@ const ServicioForm = ({ servicio, onClose, activeTab = 0 }) => {
               onChange={handleChange}
               required
             >
-              <option value="baja">Baja</option>
-              <option value="media">Media</option>
-              <option value="alta">Alta</option>
+              <option value="BAJA">Baja</option>
+              <option value="MEDIA">Media</option>
+              <option value="ALTA">Alta</option>
+              <option value="URGENTE">Urgente</option>
             </select>
           </div>
         </div>

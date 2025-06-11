@@ -59,18 +59,39 @@ if (NODE_ENV === 'development') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Servir archivos estáticos - con configuraciones adicionales
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  maxAge: '1d', // Cache por 1 día
-  etag: true,
-  setHeaders: (res, filePath) => {
-    // Configurar headers de seguridad para imágenes
-    if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg') || filePath.endsWith('.png') || filePath.endsWith('.gif') || filePath.endsWith('.webp')) {
-      res.setHeader('Content-Security-Policy', "default-src 'self'");
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-    }
+// Ruta API para servir imágenes con headers CORS correctos
+app.get('/uploads/*', (req, res) => {
+  const filePath = path.join(__dirname, req.path);
+  const fs = require('fs');
+  
+  // Verificar si el archivo existe
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Imagen no encontrada' });
   }
-}));
+  
+  // Configurar headers CORS específicos para imágenes
+  res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:2000');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  
+  // Determinar el tipo de contenido
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp'
+  };
+  
+  const contentType = mimeTypes[ext] || 'application/octet-stream';
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 día
+  
+  // Enviar el archivo
+  res.sendFile(filePath);
+});
 
 // Ruta de salud
 app.get('/health', (req, res) => {

@@ -73,6 +73,10 @@ const autoFixImagePaths = (data, userType) => {
       const fixedPath = fixImagePath(fixed.profileImage, userType);
       if (fixedPath) {
         fixed.profileImage = fixedPath;
+      } else {
+        // Si no se encuentra el archivo, eliminar profileImage para evitar errores 404
+        console.log(`🗑️ Eliminando profileImage no encontrado: ${fixed.profileImage}`);
+        fixed.profileImage = null;
       }
     }
     

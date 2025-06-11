@@ -57,10 +57,23 @@ const createServicioUploadDirs = () => {
   });
 };
 
+// Crear estructura de directorios para equipos
+const createEquipoUploadDirs = () => {
+  const baseDir = path.join(uploadsDir, 'equipos');
+  const imagenesDir = path.join(baseDir, 'imagenes');
+  
+  [baseDir, imagenesDir].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+};
+
 createTecnicoUploadDirs();
 createClienteUploadDirs();
 createAdminUploadDirs();
 createServicioUploadDirs();
+createEquipoUploadDirs();
 
 // Función para obtener el directorio basado en fecha
 const getDateBasedPath = (baseDir) => {
@@ -147,10 +160,33 @@ const adminLocalStorage = multer.diskStorage({
   }
 });
 
+// Configuración de almacenamiento local para equipos
+const equipoLocalStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Estructura: uploads/equipos/imagenes/2024/01/
+    const imagenesBase = path.join(uploadsDir, 'equipos', 'imagenes');
+    const folder = getDateBasedPath(imagenesBase);
+    
+    cb(null, folder);
+  },
+  filename: (req, file, cb) => {
+    const equipoId = req.params.id || 'temp';
+    const timestamp = Date.now();
+    const randomString = Math.round(Math.random() * 1E9);
+    const extension = path.extname(file.originalname);
+    
+    // Formato: equipo-equipoId-timestamp-random.jpg
+    const filename = `equipo-${equipoId}-${timestamp}-${randomString}${extension}`;
+    
+    cb(null, filename);
+  }
+});
+
 // Filtro de archivos
 const fileFilter = (req, file, cb) => {
   const allowedMimeTypes = {
     avatar: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+    equipo: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
     document: [
       'image/jpeg', 
       'image/png', 
@@ -162,14 +198,20 @@ const fileFilter = (req, file, cb) => {
     ]
   };
   
-  const mimeTypes = file.fieldname.includes('avatar') 
-    ? allowedMimeTypes.avatar 
-    : allowedMimeTypes.document;
+  let mimeTypes;
+  if (file.fieldname.includes('avatar')) {
+    mimeTypes = allowedMimeTypes.avatar;
+  } else if (file.fieldname.includes('imagenEquipo')) {
+    mimeTypes = allowedMimeTypes.equipo;
+  } else {
+    mimeTypes = allowedMimeTypes.document;
+  }
   
   if (mimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    const fileType = file.fieldname.includes('avatar') ? 'imágenes' : 'documentos';
+    const fileType = file.fieldname.includes('avatar') ? 'imágenes de avatar' : 
+                    file.fieldname.includes('imagenEquipo') ? 'imágenes de equipo' : 'documentos';
     cb(new Error(`Solo se permiten ${fileType} en formatos permitidos`), false);
   }
 };
@@ -201,6 +243,15 @@ const uploadLocalAdmin = multer({
   }
 });
 
+// Configuración de multer para almacenamiento local de equipos
+const uploadLocalEquipo = multer({
+  storage: equipoLocalStorage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB máximo
+  }
+});
+
 // Middleware para upload de avatar de técnicos
 const uploadTecnicoAvatar = uploadLocalTecnico.single('avatar');
 
@@ -209,6 +260,9 @@ const uploadClienteAvatar = uploadLocalCliente.single('avatar');
 
 // Middleware para upload de avatar de administradores
 const uploadAdminAvatar = uploadLocalAdmin.single('avatar');
+
+// Middleware para upload de imagen de equipos
+const uploadEquipoImagen = uploadLocalEquipo.single('imagenEquipo');
 
 // Función helper para construir URL relativa
 const buildFileUrl = (filename, type, userRole) => {
@@ -424,6 +478,7 @@ module.exports = {
   uploadTecnicoAvatar,
   uploadClienteAvatar,
   uploadAdminAvatar,
+  uploadEquipoImagen,
   buildFileUrl,
   deleteOldFile,
   handleUploadError

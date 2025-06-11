@@ -1,4 +1,5 @@
 const prisma = require('../config/database');
+const { deleteOldFile } = require('../config/upload');
 
 const equipoController = {
   // Obtener todos los equipos
@@ -42,7 +43,7 @@ const equipoController = {
             },
             servicios: {
               where: { estado: { in: ['PENDIENTE', 'PROCESO'] } },
-              select: { id: true, numeroOrden: true, estado: true, fechaProgramada: true, tipoServicio: true }
+              select: { id: true, estado: true, fechaProgramada: true, tipoServicio: true }
             }
           },
           orderBy: { createdAt: 'desc' }
@@ -113,6 +114,15 @@ const equipoController = {
 
   // Crear nuevo equipo
   create: async (req, res) => {
+    console.log('🔧 === INICIO CREACIÓN EQUIPO ===');
+    console.log('📝 Datos recibidos en req.body:', JSON.stringify(req.body, null, 2));
+    console.log('📷 Archivo recibido req.file:', req.file ? {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      filename: req.file.filename,
+      size: req.file.size
+    } : 'No hay archivo');
+    
     try {
       const { 
         clienteId, 
@@ -124,16 +134,20 @@ const equipoController = {
         ubicacion, 
         descripcion, 
         fechaInstalacion,
-        especificacionesTecnicas,
-        garantia
+        fechaCompra,
+        capacidad,
+        estadoOperativo = 'operativo'
       } = req.body;
 
+      console.log('🔍 Verificando cliente...');
+      
       // Verificar que el cliente existe
       const cliente = await prisma.cliente.findUnique({
         where: { id: parseInt(clienteId) }
       });
 
       if (!cliente) {
+        console.log('❌ Cliente no encontrado');
         return res.status(404).json({
           success: false,
           message: 'Cliente no encontrado'
@@ -141,12 +155,14 @@ const equipoController = {
       }
 
       // Verificar si ya existe un equipo con el mismo número de serie
-      if (numeroSerie) {
+      if (numeroSerie && numeroSerie.trim()) {
+        console.log('🔍 Verificando número de serie:', numeroSerie);
         const equipoExistente = await prisma.equipo.findFirst({
-          where: { numeroSerie }
+          where: { numeroSerie: numeroSerie.trim() }
         });
 
         if (equipoExistente) {
+          console.log('❌ Equipo con número de serie ya existe');
           return res.status(409).json({
             success: false,
             message: 'Ya existe un equipo con este número de serie'
@@ -154,21 +170,27 @@ const equipoController = {
         }
       }
 
+      console.log('💾 Creando equipo en BD...');
+      
+      const equipoData = {
+        clienteId: parseInt(clienteId),
+        nombre: nombre || `${tipo} ${marca || ''}`.trim(),
+        tipo,
+        marca: marca || null,
+        modelo: modelo || null,
+        numeroSerie: numeroSerie ? numeroSerie.trim() : null,
+        ubicacion: ubicacion || null,
+        descripcion: descripcion || null,
+        fechaInstalacion: fechaInstalacion ? new Date(fechaInstalacion) : null,
+        fechaCompra: fechaCompra ? new Date(fechaCompra) : null,
+        capacidad: capacidad || null,
+        estadoOperativo: estadoOperativo || 'operativo',
+        imagenEquipo: req.file ? `equipos/imagenes/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${req.file.filename}` : null,
+        isActive: true
+      };
+
       const equipo = await prisma.equipo.create({
-        data: {
-          clienteId: parseInt(clienteId),
-          nombre,
-          tipo,
-          marca: marca || null,
-          modelo: modelo || null,
-          numeroSerie: numeroSerie || null,
-          ubicacion: ubicacion || null,
-          descripcion: descripcion || null,
-          fechaInstalacion: fechaInstalacion ? new Date(fechaInstalacion) : null,
-          especificacionesTecnicas: especificacionesTecnicas || null,
-          garantia: garantia || null,
-          isActive: true
-        },
+        data: equipoData,
         include: {
           cliente: {
             select: { id: true, nombre: true, apellido: true }
@@ -176,22 +198,35 @@ const equipoController = {
         }
       });
 
+      console.log('✅ Equipo creado exitosamente con ID:', equipo.id);
+
       res.status(201).json({
         success: true,
         message: 'Equipo creado exitosamente',
         data: equipo
       });
     } catch (error) {
-      console.error('Error al crear equipo:', error);
+      console.error('💥 ERROR AL CREAR EQUIPO:', error);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Error interno del servidor',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
+    console.log('🏁 === FIN CREACIÓN EQUIPO ===');
   },
 
   // Actualizar equipo
   update: async (req, res) => {
+    console.log('🔧 === INICIO ACTUALIZACIÓN EQUIPO ===');
+    console.log('📝 Datos recibidos en req.body:', JSON.stringify(req.body, null, 2));
+    console.log('📷 Archivo recibido req.file:', req.file ? {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      filename: req.file.filename,
+      size: req.file.size
+    } : 'No hay archivo');
+    
     try {
       const { id } = req.params;
       const { 
@@ -203,32 +238,33 @@ const equipoController = {
         ubicacion, 
         descripcion, 
         fechaInstalacion,
-        especificacionesTecnicas,
-        garantia,
-        isActive 
+        fechaCompra,
+        capacidad,
+        estadoOperativo,
+        isActive
       } = req.body;
 
-      const equipo = await prisma.equipo.findUnique({
+      const equipoExistente = await prisma.equipo.findUnique({
         where: { id: parseInt(id) }
       });
 
-      if (!equipo) {
+      if (!equipoExistente) {
         return res.status(404).json({
           success: false,
           message: 'Equipo no encontrado'
         });
       }
 
-      // Verificar si el número de serie ya existe en otro equipo
-      if (numeroSerie && numeroSerie !== equipo.numeroSerie) {
-        const equipoExistente = await prisma.equipo.findFirst({
+      // Verificar número de serie único (si cambió)
+      if (numeroSerie && numeroSerie.trim() && numeroSerie.trim() !== equipoExistente.numeroSerie) {
+        const equipoConMismoSerial = await prisma.equipo.findFirst({
           where: { 
-            numeroSerie,
+            numeroSerie: numeroSerie.trim(),
             id: { not: parseInt(id) }
           }
         });
 
-        if (equipoExistente) {
+        if (equipoConMismoSerial) {
           return res.status(409).json({
             success: false,
             message: 'Ya existe otro equipo con este número de serie'
@@ -236,21 +272,36 @@ const equipoController = {
         }
       }
 
+      const updateData = {
+        nombre: nombre || `${tipo} ${marca || ''}`.trim(),
+        tipo,
+        marca: marca || null,
+        modelo: modelo || null,
+        numeroSerie: numeroSerie ? numeroSerie.trim() : null,
+        ubicacion: ubicacion || null,
+        descripcion: descripcion || null,
+        fechaInstalacion: fechaInstalacion ? new Date(fechaInstalacion) : null,
+        fechaCompra: fechaCompra ? new Date(fechaCompra) : null,
+        capacidad: capacidad || null,
+        estadoOperativo: estadoOperativo || 'operativo',
+        isActive: isActive !== undefined ? isActive : true
+      };
+
+      // Solo actualizar imagen si se subió una nueva
+      if (req.file) {
+        // Eliminar imagen antigua si existe
+        if (equipoExistente.imagenEquipo) {
+          console.log('🗑️ Eliminando imagen antigua:', equipoExistente.imagenEquipo);
+          await deleteOldFile(equipoExistente.imagenEquipo, 'equipos');
+        }
+        
+        updateData.imagenEquipo = `equipos/imagenes/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${req.file.filename}`;
+        console.log('📷 Actualizando imagenEquipo a:', updateData.imagenEquipo);
+      }
+
       const equipoActualizado = await prisma.equipo.update({
         where: { id: parseInt(id) },
-        data: {
-          nombre,
-          tipo,
-          marca,
-          modelo,
-          numeroSerie,
-          ubicacion,
-          descripcion,
-          fechaInstalacion: fechaInstalacion ? new Date(fechaInstalacion) : equipo.fechaInstalacion,
-          especificacionesTecnicas,
-          garantia,
-          isActive
-        },
+        data: updateData,
         include: {
           cliente: {
             select: { id: true, nombre: true, apellido: true }
@@ -258,18 +309,20 @@ const equipoController = {
         }
       });
 
+      console.log('✅ Equipo actualizado exitosamente');
       res.json({
         success: true,
         message: 'Equipo actualizado exitosamente',
         data: equipoActualizado
       });
     } catch (error) {
-      console.error('Error al actualizar equipo:', error);
+      console.error('💥 ERROR AL ACTUALIZAR EQUIPO:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'
       });
     }
+    console.log('🏁 === FIN ACTUALIZACIÓN EQUIPO ===');
   },
 
   // Eliminar equipo (soft delete)
@@ -320,24 +373,12 @@ const equipoController = {
     }
   },
 
-  // Obtener historial de servicios de un equipo
+  // Obtener servicios del equipo
   getServicios: async (req, res) => {
     try {
       const { id } = req.params;
       const { page = 1, limit = 10, estado } = req.query;
       const skip = (page - 1) * limit;
-
-      const equipo = await prisma.equipo.findUnique({
-        where: { id: parseInt(id) },
-        select: { id: true, nombre: true, tipo: true, marca: true, modelo: true }
-      });
-
-      if (!equipo) {
-        return res.status(404).json({
-          success: false,
-          message: 'Equipo no encontrado'
-        });
-      }
 
       const where = {
         equipoId: parseInt(id),
@@ -350,9 +391,12 @@ const equipoController = {
           include: {
             tecnico: {
               select: { nombre: true, apellido: true, telefono: true, especialidad: true }
+            },
+            cliente: {
+              select: { nombre: true, apellido: true, telefono: true, email: true }
             }
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { fechaProgramada: 'desc' },
           skip: parseInt(skip),
           take: parseInt(limit)
         }),
@@ -361,15 +405,12 @@ const equipoController = {
 
       res.json({
         success: true,
-        data: {
-          equipo,
-          servicios,
-          pagination: {
-            page: parseInt(page),
-            limit: parseInt(limit),
-            total,
-            pages: Math.ceil(total / limit)
-          }
+        data: servicios,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit)
         }
       });
     } catch (error) {
@@ -385,31 +426,17 @@ const equipoController = {
   getByCliente: async (req, res) => {
     try {
       const { clienteId } = req.params;
-      const { activo } = req.query;
-
-      const cliente = await prisma.cliente.findUnique({
-        where: { id: parseInt(clienteId) },
-        select: { id: true, nombre: true, apellido: true }
-      });
-
-      if (!cliente) {
-        return res.status(404).json({
-          success: false,
-          message: 'Cliente no encontrado'
-        });
-      }
-
-      const where = {
-        clienteId: parseInt(clienteId),
-        ...(activo !== undefined && { isActive: activo === 'true' })
-      };
+      const { activo = true } = req.query;
 
       const equipos = await prisma.equipo.findMany({
-        where,
+        where: {
+          clienteId: parseInt(clienteId),
+          isActive: activo === 'true'
+        },
         include: {
           servicios: {
             where: { estado: { in: ['PENDIENTE', 'PROCESO'] } },
-            select: { id: true, numeroOrden: true, estado: true, fechaProgramada: true }
+            select: { id: true, estado: true, fechaProgramada: true, tipoServicio: true }
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -417,14 +444,10 @@ const equipoController = {
 
       res.json({
         success: true,
-        data: {
-          cliente,
-          equipos,
-          total: equipos.length
-        }
+        data: equipos
       });
     } catch (error) {
-      console.error('Error al obtener equipos por cliente:', error);
+      console.error('Error al obtener equipos del cliente:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'

@@ -1,5 +1,31 @@
 const prisma = require('../config/database');
 
+// Función helper para generar número de orden único
+const generateOrderNumber = async () => {
+  const today = new Date();
+  const year = today.getFullYear().toString().slice(-2);
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  
+  // Buscar el último número de orden del día
+  const lastOrder = await prisma.servicio.findFirst({
+    where: {
+      numeroOrden: {
+        startsWith: `ODT-${year}${month}${day}`
+      }
+    },
+    orderBy: { numeroOrden: 'desc' }
+  });
+  
+  let nextNumber = 1;
+  if (lastOrder) {
+    const lastNumber = parseInt(lastOrder.numeroOrden.slice(-3));
+    nextNumber = lastNumber + 1;
+  }
+  
+  return `ODT-${year}${month}${day}${String(nextNumber).padStart(3, '0')}`;
+};
+
 const servicioController = {
   // Obtener todos los servicios
   getAll: async (req, res) => {
@@ -143,33 +169,58 @@ const servicioController = {
 
   // Crear nuevo servicio
   create: async (req, res) => {
+    console.log('📋 === CREAR SERVICIO ===');
+    console.log('📝 Datos recibidos:', JSON.stringify(req.body, null, 2));
+    
     try {
       const { 
         clienteId,
         equipoId, 
+        tecnicoId,
         tipoServicio, 
         descripcion, 
         fechaProgramada, 
         prioridad = 'MEDIA',
         observaciones,
-        detalles
+        detalles,
+        equiposIds // Array de IDs de equipos para múltiples equipos
       } = req.body;
 
       // Verificar que el cliente existe
+      console.log('🔍 Verificando cliente:', clienteId);
       const cliente = await prisma.cliente.findUnique({
         where: { id: parseInt(clienteId) }
       });
 
       if (!cliente) {
+        console.log('❌ Cliente no encontrado');
         return res.status(404).json({
           success: false,
           message: 'Cliente no encontrado'
         });
       }
 
-      // Verificar equipo si se proporciona
+      // Verificar técnico si se proporciona
+      let tecnico = null;
+      if (tecnicoId) {
+        console.log('🔍 Verificando técnico:', tecnicoId);
+        tecnico = await prisma.tecnico.findUnique({
+          where: { id: parseInt(tecnicoId) }
+        });
+
+        if (!tecnico) {
+          console.log('❌ Técnico no encontrado');
+          return res.status(404).json({
+            success: false,
+            message: 'Técnico no encontrado'
+          });
+        }
+      }
+
+      // Verificar equipo principal si se proporciona
       let equipo = null;
       if (equipoId) {
+        console.log('🔍 Verificando equipo principal:', equipoId);
         equipo = await prisma.equipo.findFirst({
           where: { 
             id: parseInt(equipoId),
@@ -178,6 +229,7 @@ const servicioController = {
         });
 
         if (!equipo) {
+          console.log('❌ Equipo principal no encontrado o no pertenece al cliente');
           return res.status(404).json({
             success: false,
             message: 'Equipo no encontrado o no pertenece al cliente especificado'
@@ -185,43 +237,95 @@ const servicioController = {
         }
       }
 
-      // Generar número de orden único
-      const lastService = await prisma.servicio.findFirst({
-        orderBy: { id: 'desc' }
-      });
-      
-      const nextNumber = lastService ? lastService.id + 1 : 1;
-      const numeroOrden = `ODT-${nextNumber.toString().padStart(3, '0')}`;
+      // Verificar equipos adicionales si se proporcionan
+      let equiposAdicionales = [];
+      if (equiposIds && equiposIds.length > 0) {
+        console.log('🔍 Verificando equipos adicionales:', equiposIds);
+        equiposAdicionales = await prisma.equipo.findMany({
+          where: {
+            id: { in: equiposIds.map(id => parseInt(id)) },
+            clienteId: parseInt(clienteId)
+          }
+        });
 
-      const servicio = await prisma.servicio.create({
-        data: {
-          numeroOrden,
-          equipoId: equipoId ? parseInt(equipoId) : null,
-          tipoServicio,
-          descripcion,
-          fechaProgramada: fechaProgramada ? new Date(fechaProgramada) : null,
-          estado: 'PENDIENTE',
-          prioridad,
-          observaciones: observaciones || null,
-          detalles: detalles || null,
-          // Para servicios sin equipo específico, crear relación directa con cliente
-          ...(equipoId ? {} : { clienteDirecto: parseInt(clienteId) })
-        },
-        include: {
-          equipo: {
-            include: {
-              cliente: {
-                select: { id: true, nombre: true, apellido: true }
+        if (equiposAdicionales.length !== equiposIds.length) {
+          console.log('❌ Algunos equipos adicionales no encontrados');
+          return res.status(404).json({
+            success: false,
+            message: 'Algunos equipos no encontrados o no pertenecen al cliente'
+          });
+        }
+      }
+
+      // Generar número de orden único
+      console.log('🔢 Generando número de orden...');
+      const numeroOrden = await generateOrderNumber();
+
+      // Crear servicio en transacción para manejar múltiples equipos
+      console.log('💾 Creando servicio en transacción...');
+      const resultado = await prisma.$transaction(async (tx) => {
+        // 1. Crear el servicio principal
+        const servicio = await tx.servicio.create({
+          data: {
+            id: numeroOrden,
+            numeroOrden,
+            clienteId: parseInt(clienteId),
+            equipoId: equipoId ? parseInt(equipoId) : null,
+            tecnicoId: tecnicoId ? parseInt(tecnicoId) : null,
+            tipoServicio,
+            descripcion,
+            fechaProgramada: fechaProgramada ? new Date(fechaProgramada) : null,
+            estado: 'PENDIENTE',
+            prioridad,
+            observaciones: observaciones || null,
+            detalles: detalles || null
+          }
+        });
+
+        // 2. Crear relaciones con equipos adicionales si existen
+        if (equiposIds && equiposIds.length > 0) {
+          console.log('🔗 Creando relaciones con equipos adicionales...');
+          const equiposRelaciones = equiposIds.map(eqId => ({
+            servicioId: servicio.id,
+            equipoId: parseInt(eqId)
+          }));
+
+          await tx.servicioEquipo.createMany({
+            data: equiposRelaciones
+          });
+        }
+
+        // 3. Recuperar el servicio completo con todas las relaciones
+        const servicioCompleto = await tx.servicio.findUnique({
+          where: { id: servicio.id },
+          include: {
+            cliente: {
+              select: { id: true, nombre: true, apellido: true, email: true, telefono: true }
+            },
+            equipo: {
+              select: { id: true, nombre: true, tipo: true, marca: true, modelo: true }
+            },
+            tecnico: {
+              select: { id: true, nombre: true, apellido: true, especialidad: true }
+            },
+            equiposServicio: {
+              include: {
+                equipo: {
+                  select: { id: true, nombre: true, tipo: true, marca: true, modelo: true }
+                }
               }
             }
           }
-        }
+        });
+
+        return servicioCompleto;
       });
 
+      console.log('✅ Servicio creado exitosamente:', resultado.numeroOrden);
       res.status(201).json({
         success: true,
         message: 'Servicio creado exitosamente',
-        data: servicio
+        data: resultado
       });
     } catch (error) {
       console.error('Error al crear servicio:', error);

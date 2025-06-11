@@ -99,38 +99,60 @@ model Equipo {
   ubicacion        String?
   descripcion      String?
   fechaInstalacion DateTime?
+  fechaCompra      DateTime?
+  capacidad        String?
+  estadoOperativo  String?    @default("operativo")
+  imagenEquipo     String?
   isActive         Boolean    @default(true)
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
-  cliente          Cliente    @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  servicios        Servicio[]
+  cliente          Cliente          @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  servicios        Servicio[]       // Relación original (mantener para compatibilidad)
+  serviciosEquipo  ServicioEquipo[] // Nueva relación many-to-many
 
   @@map("equipos")
 }
 
 model Servicio {
-  id              String         @id
+  id              String            @id
   clienteId       Int
-  equipoId        Int?
+  equipoId        Int?              // Mantener para compatibilidad
   tecnicoId       Int?
   tipoServicio    String
   descripcion     String
-  fechaSolicitud  DateTime       @default(now())
+  fechaSolicitud  DateTime          @default(now())
   fechaProgramada DateTime?
   fechaCompletado DateTime?
-  estado          EstadoServicio @default(PENDIENTE)
-  prioridad       Prioridad      @default(MEDIA)
+  fechaInicio     DateTime?         // Nuevo: cuando inicia el trabajo
+  estado          EstadoServicio    @default(PENDIENTE)
+  prioridad       Prioridad         @default(MEDIA)
   observaciones   String?
-  isActive        Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  motivoCancelacion String?         // Nuevo: motivo si se cancela
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
   detalles        Json?
   evaluacion      Json?
-  cliente         Cliente        @relation(fields: [clienteId], references: [id])
-  equipo          Equipo?        @relation(fields: [equipoId], references: [id])
-  tecnico         Tecnico?       @relation(fields: [tecnicoId], references: [id])
+  numeroOrden     String?           @unique // Nuevo: número de orden único
+  cliente         Cliente           @relation(fields: [clienteId], references: [id])
+  equipo          Equipo?           @relation(fields: [equipoId], references: [id])
+  tecnico         Tecnico?          @relation(fields: [tecnicoId], references: [id])
+  equiposServicio ServicioEquipo[]  // Nuevo: relación many-to-many con equipos
 
   @@map("servicios")
+}
+
+// Nueva tabla intermedia para manejar múltiples equipos por servicio
+model ServicioEquipo {
+  id         Int      @id @default(autoincrement())
+  servicioId String
+  equipoId   Int
+  createdAt  DateTime @default(now())
+  servicio   Servicio @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  equipo     Equipo   @relation(fields: [equipoId], references: [id])
+
+  @@unique([servicioId, equipoId])
+  @@map("servicios_equipos")
 }
 
 model Repuesto {
