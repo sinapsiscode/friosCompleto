@@ -35,7 +35,8 @@ const Sidebar = ({ collapsed, toggleSidebar }) => {
   ];
 
   const getMenu = () => {
-    switch (user?.userType) {
+    const userType = user?.userType || user?.role?.toLowerCase();
+    switch (userType) {
       case 'admin':
         return adminMenu;
       case 'tecnico':
@@ -48,7 +49,8 @@ const Sidebar = ({ collapsed, toggleSidebar }) => {
   };
 
   const getUserRole = () => {
-    switch (user?.userType) {
+    const userType = user?.userType || user?.role?.toLowerCase();
+    switch (userType) {
       case 'admin':
         return 'Administrador';
       case 'tecnico':
@@ -61,9 +63,10 @@ const Sidebar = ({ collapsed, toggleSidebar }) => {
   };
 
   const getUserData = () => {
-    if (user?.userType === 'cliente') {
+    const userType = user?.userType || user?.role?.toLowerCase();
+    if (userType === 'cliente') {
       return data.clientes.find(c => c.usuario === user.username);
-    } else if (user?.userType === 'tecnico') {
+    } else if (userType === 'tecnico') {
       return data.tecnicos.find(t => t.usuario === user.username);
     }
     return null;
@@ -96,9 +99,9 @@ const Sidebar = ({ collapsed, toggleSidebar }) => {
           />
         ) : (
           <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center text-sm font-semibold">
-            {user?.userType === 'admin' ? 'AD' : 
-             user?.userType === 'cliente' ? (getUserData()?.tipo === 'empresa' ? getUserData()?.razonSocial?.charAt(0)?.toUpperCase() || 'C' : `${getUserData()?.nombre?.charAt(0) || ''}${getUserData()?.apellido?.charAt(0) || ''}`.toUpperCase() || 'C') :
-             user?.userType === 'tecnico' ? `${getUserData()?.nombre?.charAt(0) || ''}${getUserData()?.apellido?.charAt(0) || ''}`.toUpperCase() || 'T' :
+            {(user?.userType || user?.role?.toLowerCase()) === 'admin' ? 'AD' : 
+             (user?.userType || user?.role?.toLowerCase()) === 'cliente' ? (getUserData()?.tipo === 'empresa' ? getUserData()?.razonSocial?.charAt(0)?.toUpperCase() || 'C' : `${getUserData()?.nombre?.charAt(0) || ''}${getUserData()?.apellido?.charAt(0) || ''}`.toUpperCase() || 'C') :
+             (user?.userType || user?.role?.toLowerCase()) === 'tecnico' ? `${getUserData()?.nombre?.charAt(0) || ''}${getUserData()?.apellido?.charAt(0) || ''}`.toUpperCase() || 'T' :
              'U'}
           </div>
         )}

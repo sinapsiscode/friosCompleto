@@ -1,6 +1,7 @@
 export const CREDENCIALES = {
   default: {
-    admin: { password: 'admin123' },
+    'admin/servicefrios': { password: '123456' },
+    admin: { password: '123456' },
     tecnico: { password: 'tecnico123' },
     cliente: { password: 'cliente123' }
   },

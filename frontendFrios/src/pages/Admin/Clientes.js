@@ -1,17 +1,48 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
+import AuthContext from '../../context/AuthContext';
 import Modal from '../../components/Common/Modal';
 import ClienteForm from '../../components/Forms/ClienteForm';
+import clienteService from '../../services/cliente.service';
 
 const Clientes = () => {
   const { data } = useContext(DataContext);
+  const { useBackend } = useContext(AuthContext);
+  const [clientes, setClientes] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
   const [viewMode, setViewMode] = useState('grid');
   const [showModal, setShowModal] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const filteredClientes = data.clientes.filter(cliente => {
+  // Cargar clientes del backend o datos estáticos
+  useEffect(() => {
+    const loadClientes = async () => {
+      if (useBackend) {
+        console.log('🌐 Cargando clientes desde el backend...');
+        setLoading(true);
+        const result = await clienteService.getAll();
+        if (result.success) {
+          console.log('✅ Clientes cargados:', result.data.length);
+          setClientes(result.data || []);
+        } else {
+          console.error('❌ Error cargando clientes:', result.message);
+          setClientes([]);
+        }
+        setLoading(false);
+      } else {
+        console.log('💾 Usando clientes de datos estáticos');
+        setClientes(data.clientes || []);
+        setLoading(false);
+      }
+    };
+    
+    loadClientes();
+  }, [useBackend, refreshKey]);
+
+  const filteredClientes = clientes.filter(cliente => {
     const nombre = cliente.tipo === 'empresa'
       ? cliente.razonSocial
       : `${cliente.nombre} ${cliente.apellido}`;
@@ -97,7 +128,24 @@ const Clientes = () => {
         </div>
       </div>
 
-      {viewMode === 'grid' ? (
+      {loading ? (
+        <div className="text-center py-16 bg-white rounded-lg shadow-sm">
+          <i className="fas fa-spinner fa-spin text-4xl text-primary mb-4"></i>
+          <p className="text-gray-600">Cargando clientes...</p>
+        </div>
+      ) : filteredClientes.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-lg shadow-sm">
+          <i className="fas fa-users text-6xl text-gray-300 mb-6"></i>
+          <h3 className="text-xl text-gray-700 m-0 mb-3">No se encontraron clientes</h3>
+          <p className="text-base text-gray-500 m-0 mb-8">No hay clientes que coincidan con los filtros aplicados.</p>
+          <button className="btn-primary-enhanced group" onClick={handleNuevoCliente}>
+            <span className="flex items-center gap-2">
+              <i className="fas fa-plus"></i>
+              <span>Agregar Primer Cliente</span>
+            </span>
+          </button>
+        </div>
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(350px,1fr))] gap-6 animate-fadeIn">
           {filteredClientes.map(cliente => {
             const nombre = cliente.tipo === 'empresa'
@@ -112,9 +160,13 @@ const Clientes = () => {
                 <div className="flex items-start gap-6  relative pb-6 border-b border-gray-100">
                   {cliente.profileImage ? (
                     <img 
-                      src={cliente.profileImage} 
+                      src={`${process.env.REACT_APP_API_URL || 'http://localhost:2001'}/uploads/${cliente.profileImage}`} 
                       alt={nombre} 
                       className="w-15 h-15 rounded-2xl object-cover border-4 border-gray-200 transition-all duration-300 flex-shrink-0 relative before:content-[''] before:absolute before:-top-0.5 before:-left-0.5 before:-right-0.5 before:-bottom-0.5 before:rounded-2xl before:bg-gradient-to-r before:from-transparent before:via-primary/20 before:to-transparent before:-z-[1] before:opacity-0 before:transition-all before:duration-300 group-hover:before:opacity-100"
+                      onError={(e) => {
+                        console.log('❌ Error cargando imagen cliente:', e.target.src);
+                        e.target.style.display = 'none';
+                      }}
                     />
                   ) : (
                     <div className={`w-15 h-15 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 flex-shrink-0 relative before:content-[''] before:absolute before:-top-0.5 before:-left-0.5 before:-right-0.5 before:-bottom-0.5 before:rounded-2xl before:bg-gradient-to-r before:from-transparent before:via-primary/20 before:to-transparent before:-z-[1] before:opacity-0 before:transition-all before:duration-300 group-hover:before:opacity-100 ${cliente.tipo === 'empresa' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'}`}>
@@ -219,9 +271,13 @@ const Clientes = () => {
                       <div className="flex items-center gap-3">
                         {cliente.profileImage ? (
                           <img 
-                            src={cliente.profileImage} 
+                            src={`${process.env.REACT_APP_API_URL || 'http://localhost:2001'}/uploads/${cliente.profileImage}`} 
                             alt={nombre} 
                             className="w-10 h-10 rounded-2xl object-cover border-2 border-gray-200"
+                            onError={(e) => {
+                              console.log('❌ Error cargando imagen cliente lista:', e.target.src);
+                              e.target.style.display = 'none';
+                            }}
                           />
                         ) : (
                           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-base transition-all duration-300 flex-shrink-0 ${cliente.tipo === 'empresa' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'}`}>
@@ -270,6 +326,12 @@ const Clientes = () => {
         <ClienteForm
           cliente={selectedCliente}
           onClose={() => setShowModal(false)}
+          onSuccess={(newCliente) => {
+            console.log('✅ Cliente creado exitosamente:', newCliente);
+            setShowModal(false);
+            // Actualizar lista sin recargar página completa
+            setRefreshKey(prev => prev + 1);
+          }}
         />
       </Modal>
     </div>

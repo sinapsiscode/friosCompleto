@@ -24,7 +24,7 @@ async function main() {
     // 1. Administrador principal
     const adminUser = await prisma.usuario.create({
       data: {
-        username: 'admin',
+        username: 'admin/servicefrios',
         email: 'admin@servicefrios.pe',
         password: await bcrypt.hash('admin123', 10),
         role: 'ADMIN'

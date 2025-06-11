@@ -119,14 +119,13 @@ const authController = {
 
   // Login de usuario
   login: async (req, res) => {
-    const { username, password, role } = req.body;
+    const { username, password } = req.body;
 
     try {
-      // Buscar usuario
+      // Buscar usuario por username solamente
       const user = await prisma.usuario.findFirst({
         where: {
           username,
-          role,
           isActive: true
         },
         include: {
@@ -163,6 +162,11 @@ const authController = {
       // Obtener perfil según rol
       const profile = user.admin || user.tecnico || user.cliente;
 
+      console.log('🔑 Tokens generados:', {
+        accessToken: tokens.accessToken ? '✅ Token generado' : '❌ NO HAY TOKEN',
+        refreshToken: tokens.refreshToken ? '✅ Refresh generado' : '❌ NO HAY REFRESH'
+      });
+
       res.json({
         success: true,
         message: 'Login exitoso',
@@ -173,7 +177,9 @@ const authController = {
           role: user.role,
           profile
         },
-        ...tokens
+        token: tokens.accessToken,  // Frontend espera 'token', no 'accessToken'
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn
       });
 
     } catch (error) {

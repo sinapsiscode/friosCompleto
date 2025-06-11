@@ -1,10 +1,15 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
+import AuthContext from '../../context/AuthContext';
 import Modal from '../../components/Common/Modal';
 import TecnicoForm from '../../components/Forms/TecnicoForm';
+import tecnicoService from '../../services/tecnico.service';
 
 const Tecnicos = () => {
   const { data } = useContext(DataContext);
+  const { useBackend } = useContext(AuthContext);
+  const [tecnicos, setTecnicos] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEspecialidad, setFilterEspecialidad] = useState('todas');
   const [viewMode, setViewMode] = useState('grid');
@@ -14,12 +19,38 @@ const Tecnicos = () => {
   const [historyTecnico, setHistoryTecnico] = useState(null);
   const [showServiceDetailsModal, setShowServiceDetailsModal] = useState(false);
   const [selectedServiceForDetails, setSelectedServiceForDetails] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0); // Para forzar actualización
 
-  const filteredTecnicos = data.tecnicos.filter(tecnico => {
+  // Cargar técnicos del backend o datos estáticos
+  useEffect(() => {
+    const loadTecnicos = async () => {
+      if (useBackend) {
+        console.log('🌐 Cargando técnicos desde el backend...');
+        setLoading(true);
+        const result = await tecnicoService.getAll();
+        if (result.success) {
+          console.log('✅ Técnicos cargados:', result.data.length);
+          setTecnicos(result.data || []);
+        } else {
+          console.error('❌ Error cargando técnicos:', result.message);
+          setTecnicos([]);
+        }
+        setLoading(false);
+      } else {
+        console.log('💾 Usando técnicos de datos estáticos');
+        setTecnicos(data.tecnicos || []);
+        setLoading(false);
+      }
+    };
+    
+    loadTecnicos();
+  }, [useBackend, refreshKey]);
+
+  const filteredTecnicos = tecnicos.filter(tecnico => {
     const matchesSearch = 
       tecnico.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tecnico.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tecnico.dni.includes(searchTerm);
+      (tecnico.dni && tecnico.dni.includes(searchTerm));
     const matchesEspecialidad = filterEspecialidad === 'todas' || tecnico.especialidad === filterEspecialidad;
     
     return matchesSearch && matchesEspecialidad;
@@ -213,7 +244,12 @@ const Tecnicos = () => {
         </div>
       </div>
 
-      {filteredTecnicos.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-16 bg-white rounded-lg shadow-sm">
+          <i className="fas fa-spinner fa-spin text-4xl text-primary mb-4"></i>
+          <p className="text-gray-600">Cargando técnicos...</p>
+        </div>
+      ) : filteredTecnicos.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-lg shadow-sm">
           <i className="fas fa-user-hard-hat text-6xl text-gray-300 mb-6"></i>
           <h3 className="text-xl text-gray-700 m-0 mb-3">No se encontraron técnicos</h3>
@@ -334,9 +370,13 @@ const Tecnicos = () => {
                       <div className="flex items-center gap-3">
                         {tecnico.profileImage ? (
                           <img 
-                            src={tecnico.profileImage} 
+                            src={`${process.env.REACT_APP_API_URL || 'http://localhost:2001'}/uploads/${tecnico.profileImage}`} 
                             alt={`${tecnico.nombre} ${tecnico.apellido}`} 
                             className="w-10 h-10 rounded-2xl object-cover border-2 border-gray-200"
+                            onError={(e) => {
+                              console.log('❌ Error cargando imagen técnico:', e.target.src);
+                              e.target.style.display = 'none';
+                            }}
                           />
                         ) : (
                           <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-base font-bold text-white" style={{ 
@@ -412,6 +452,12 @@ const Tecnicos = () => {
         <TecnicoForm 
           tecnico={selectedTecnico}
           onClose={() => setShowModal(false)}
+          onSuccess={(newTecnico) => {
+            console.log('✅ Técnico creado exitosamente:', newTecnico);
+            setShowModal(false);
+            // Actualizar lista sin recargar página completa
+            setRefreshKey(prev => prev + 1);
+          }}
         />
       </Modal>
 

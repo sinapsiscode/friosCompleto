@@ -32,15 +32,64 @@ const schemas = {
       'string.empty': 'El nombre de usuario es requerido',
       'any.required': 'El nombre de usuario es requerido'
     }),
-    password: Joi.string().min(6).required().messages({
+    password: Joi.string().min(1).required().messages({
       'string.empty': 'La contraseña es requerida',
-      'string.min': 'La contraseña debe tener al menos 6 caracteres',
       'any.required': 'La contraseña es requerida'
-    }),
-    role: Joi.string().valid('ADMIN', 'TECNICO', 'CLIENTE').required().messages({
-      'any.only': 'El rol debe ser ADMIN, TECNICO o CLIENTE',
-      'any.required': 'El rol es requerido'
     })
+  }),
+
+  // Técnicos
+  createTecnico: Joi.object({
+    username: Joi.string().alphanum().min(3).max(30).required(),
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).required(),
+    nombre: Joi.string().min(2).max(50).required(),
+    apellido: Joi.string().min(2).max(50).required(),
+    telefono: Joi.string().optional().allow(''),
+    direccion: Joi.string().optional().allow(''),
+    distrito: Joi.string().optional().allow(''),
+    dni: Joi.string().length(8).pattern(/^[0-9]+$/).optional().allow(''),
+    especialidad: Joi.string().valid('general', 'refrigeracion', 'aire_acondicionado', 'sistemas_comerciales', 'sistemas_industriales').optional(),
+    experiencia: Joi.number().integer().min(0).max(50).optional(),
+    certificaciones: Joi.string().optional().allow(''),
+    disponibilidad: Joi.string().valid('DISPONIBLE', 'NO_DISPONIBLE', 'OCUPADO').optional()
+  }),
+
+  updateTecnico: Joi.object({
+    nombre: Joi.string().min(2).max(50).optional(),
+    apellido: Joi.string().min(2).max(50).optional(),
+    email: Joi.string().email().optional(),
+    telefono: Joi.string().optional().allow(''),
+    direccion: Joi.string().optional().allow(''),
+    distrito: Joi.string().optional().allow(''),
+    dni: Joi.string().length(8).pattern(/^[0-9]+$/).optional().allow(''),
+    especialidad: Joi.string().valid('general', 'refrigeracion', 'aire_acondicionado', 'sistemas_comerciales', 'sistemas_industriales').optional(),
+    experiencia: Joi.number().integer().min(0).max(50).optional(),
+    certificaciones: Joi.string().optional().allow(''),
+    disponibilidad: Joi.string().valid('DISPONIBLE', 'NO_DISPONIBLE', 'OCUPADO').optional(),
+    isActive: Joi.boolean().optional()
+  }),
+
+  // Clientes
+  createCliente: Joi.object({
+    username: Joi.string().alphanum().min(3).max(30).required(),
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).required(),
+    nombre: Joi.string().min(2).max(50).required(),
+    apellido: Joi.string().min(2).max(50).required(),
+    telefono: Joi.string().pattern(/^[+]?[0-9\s\-()]{9,20}$/).optional(),
+    direccion: Joi.string().max(200).optional(),
+    tipo: Joi.string().valid('persona', 'empresa').default('persona')
+  }),
+
+  updateCliente: Joi.object({
+    nombre: Joi.string().min(2).max(50).optional(),
+    apellido: Joi.string().min(2).max(50).optional(),
+    email: Joi.string().email().optional(),
+    telefono: Joi.string().pattern(/^[+]?[0-9\s\-()]{9,20}$/).optional(),
+    direccion: Joi.string().max(200).optional(),
+    tipo: Joi.string().valid('persona', 'empresa').optional(),
+    isActive: Joi.boolean().optional()
   }),
 
   register: Joi.object({
@@ -63,21 +112,75 @@ const schemas = {
 
   // Cliente
   cliente: Joi.object({
+    username: Joi.string().pattern(/^[a-zA-Z0-9._-]+$/).min(3).max(30).required().messages({
+      'any.required': 'El nombre de usuario es requerido',
+      'string.min': 'El nombre de usuario debe tener al menos 3 caracteres',
+      'string.pattern.base': 'El nombre de usuario solo puede contener letras, números, puntos, guiones y guiones bajos'
+    }),
+    email: Joi.string().email().required().messages({
+      'string.email': 'Debe ser un email válido',
+      'any.required': 'El email es requerido'
+    }),
+    password: Joi.string().min(6).required().messages({
+      'string.min': 'La contraseña debe tener al menos 6 caracteres',
+      'any.required': 'La contraseña es requerida'
+    }),
     nombre: Joi.string().required().messages({
       'any.required': 'El nombre es requerido'
     }),
     apellido: Joi.string().required().messages({
       'any.required': 'El apellido es requerido'
     }),
-    email: Joi.string().email().required().messages({
-      'string.email': 'Debe ser un email válido',
-      'any.required': 'El email es requerido'
-    }),
     telefono: Joi.string().optional(),
-    direccion: Joi.string().optional()
+    direccion: Joi.string().optional(),
+    tipo: Joi.string().valid('persona', 'empresa').optional(),
+    razonSocial: Joi.string().when('tipo', {
+      is: 'empresa',
+      then: Joi.string().required(),
+      otherwise: Joi.string().optional()
+    }),
+    ruc: Joi.string().when('tipo', {
+      is: 'empresa',
+      then: Joi.string().pattern(/^[0-9]{11}$/).required(),
+      otherwise: Joi.string().optional()
+    }),
+    dni: Joi.string().when('tipo', {
+      is: 'persona',
+      then: Joi.string().pattern(/^[0-9]{8}$/).optional(),
+      otherwise: Joi.string().optional()
+    }),
+    sector: Joi.string().optional()
   }),
 
-  // Técnico
+  // Técnicos
+  createTecnico: Joi.object({
+    username: Joi.string().alphanum().min(3).max(30).required(),
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).required(),
+    nombre: Joi.string().min(2).max(50).required(),
+    apellido: Joi.string().min(2).max(50).required(),
+    telefono: Joi.string().pattern(/^[+]?[0-9\s\-()]{9,20}$/).optional(),
+    direccion: Joi.string().max(200).optional(),
+    distrito: Joi.string().max(100).optional(),
+    dni: Joi.string().pattern(/^[0-9]{8}$/).optional(),
+    especialidad: Joi.string().max(100).optional(),
+    experiencia: Joi.number().integer().min(0).max(50).optional(),
+    certificaciones: Joi.string().max(500).optional().allow(''),
+    disponibilidad: Joi.string().valid('DISPONIBLE', 'NO_DISPONIBLE', 'EN_SERVICIO').default('DISPONIBLE')
+  }),
+
+  updateTecnico: Joi.object({
+    nombre: Joi.string().min(2).max(50).optional(),
+    apellido: Joi.string().min(2).max(50).optional(),
+    email: Joi.string().email().optional(),
+    telefono: Joi.string().pattern(/^[+]?[0-9\s\-()]{9,20}$/).optional(),
+    direccion: Joi.string().max(200).optional(),
+    especialidad: Joi.string().max(100).optional(),
+    certificaciones: Joi.string().max(500).optional(),
+    disponibilidad: Joi.string().valid('DISPONIBLE', 'NO_DISPONIBLE', 'EN_SERVICIO').optional(),
+    isActive: Joi.boolean().optional()
+  }),
+
   tecnico: Joi.object({
     nombre: Joi.string().required(),
     apellido: Joi.string().required(),
@@ -88,7 +191,35 @@ const schemas = {
     disponibilidad: Joi.string().optional()
   }),
 
-  // Equipo
+  // Equipos
+  createEquipo: Joi.object({
+    clienteId: Joi.number().integer().positive().required(),
+    nombre: Joi.string().min(2).max(100).required(),
+    tipo: Joi.string().min(2).max(50).required(),
+    marca: Joi.string().max(50).optional(),
+    modelo: Joi.string().max(50).optional(),
+    numeroSerie: Joi.string().max(100).optional(),
+    ubicacion: Joi.string().max(200).optional(),
+    descripcion: Joi.string().max(500).optional(),
+    fechaInstalacion: Joi.date().optional(),
+    especificacionesTecnicas: Joi.string().max(1000).optional(),
+    garantia: Joi.string().max(200).optional()
+  }),
+
+  updateEquipo: Joi.object({
+    nombre: Joi.string().min(2).max(100).optional(),
+    tipo: Joi.string().min(2).max(50).optional(),
+    marca: Joi.string().max(50).optional(),
+    modelo: Joi.string().max(50).optional(),
+    numeroSerie: Joi.string().max(100).optional(),
+    ubicacion: Joi.string().max(200).optional(),
+    descripcion: Joi.string().max(500).optional(),
+    fechaInstalacion: Joi.date().optional(),
+    especificacionesTecnicas: Joi.string().max(1000).optional(),
+    garantia: Joi.string().max(200).optional(),
+    isActive: Joi.boolean().optional()
+  }),
+
   equipo: Joi.object({
     clienteId: Joi.number().integer().positive().required(),
     nombre: Joi.string().required(),
@@ -101,7 +232,46 @@ const schemas = {
     fechaInstalacion: Joi.date().optional()
   }),
 
-  // Servicio
+  // Servicios
+  createServicio: Joi.object({
+    clienteId: Joi.number().integer().positive().required(),
+    equipoId: Joi.number().integer().positive().optional(),
+    tipoServicio: Joi.string().min(5).max(100).required(),
+    descripcion: Joi.string().min(10).max(1000).required(),
+    fechaProgramada: Joi.date().min('now').optional(),
+    prioridad: Joi.string().valid('BAJA', 'MEDIA', 'ALTA', 'URGENTE').default('MEDIA'),
+    observaciones: Joi.string().max(500).optional(),
+    detalles: Joi.object().optional()
+  }),
+
+  updateServicio: Joi.object({
+    tecnicoId: Joi.number().integer().positive().optional(),
+    tipoServicio: Joi.string().min(5).max(100).optional(),
+    descripcion: Joi.string().min(10).max(1000).optional(),
+    fechaProgramada: Joi.date().optional(),
+    estado: Joi.string().valid('PENDIENTE', 'PROCESO', 'COMPLETADO', 'CANCELADO').optional(),
+    prioridad: Joi.string().valid('BAJA', 'MEDIA', 'ALTA', 'URGENTE').optional(),
+    observaciones: Joi.string().max(500).optional(),
+    detalles: Joi.object().optional(),
+    evaluacion: Joi.object().optional()
+  }),
+
+  asignarTecnico: Joi.object({
+    tecnicoId: Joi.number().integer().positive().required(),
+    fechaProgramada: Joi.date().min('now').optional()
+  }),
+
+  completarServicio: Joi.object({
+    observacionesFinales: Joi.string().max(1000).optional(),
+    evaluacion: Joi.object().optional(),
+    repuestosUsados: Joi.array().items(Joi.object()).optional(),
+    tiempoEmpleado: Joi.number().positive().optional()
+  }),
+
+  cancelarServicio: Joi.object({
+    motivoCancelacion: Joi.string().min(10).max(500).required()
+  }),
+
   servicio: Joi.object({
     clienteId: Joi.number().integer().positive().required(),
     equipoId: Joi.number().integer().positive().optional(),
@@ -113,20 +283,42 @@ const schemas = {
     detalles: Joi.object().optional()
   }),
 
-  // Actualizar servicio
-  updateServicio: Joi.object({
-    tecnicoId: Joi.number().integer().positive().optional(),
-    tipoServicio: Joi.string().optional(),
-    descripcion: Joi.string().optional(),
-    fechaProgramada: Joi.date().optional(),
-    estado: Joi.string().valid('PENDIENTE', 'PROCESO', 'COMPLETADO', 'CANCELADO').optional(),
-    prioridad: Joi.string().valid('BAJA', 'MEDIA', 'ALTA', 'URGENTE').optional(),
-    observaciones: Joi.string().optional(),
-    detalles: Joi.object().optional(),
-    evaluacion: Joi.object().optional()
+  // Repuestos
+  createRepuesto: Joi.object({
+    nombre: Joi.string().min(2).max(100).required(),
+    descripcion: Joi.string().max(500).optional(),
+    marca: Joi.string().max(50).optional(),
+    modelo: Joi.string().max(50).optional(),
+    categoria: Joi.string().max(50).optional(),
+    precio: Joi.number().positive().precision(2).optional(),
+    stock: Joi.number().integer().min(0).default(0),
+    stockMinimo: Joi.number().integer().min(0).default(5),
+    ubicacion: Joi.string().max(100).optional(),
+    codigoInterno: Joi.string().max(50).optional(),
+    proveedor: Joi.string().max(100).optional()
   }),
 
-  // Repuesto
+  updateRepuesto: Joi.object({
+    nombre: Joi.string().min(2).max(100).optional(),
+    descripcion: Joi.string().max(500).optional(),
+    marca: Joi.string().max(50).optional(),
+    modelo: Joi.string().max(50).optional(),
+    categoria: Joi.string().max(50).optional(),
+    precio: Joi.number().positive().precision(2).optional(),
+    stock: Joi.number().integer().min(0).optional(),
+    stockMinimo: Joi.number().integer().min(0).optional(),
+    ubicacion: Joi.string().max(100).optional(),
+    codigoInterno: Joi.string().max(50).optional(),
+    proveedor: Joi.string().max(100).optional(),
+    isActive: Joi.boolean().optional()
+  }),
+
+  updateStock: Joi.object({
+    cantidad: Joi.number().integer().min(0).required(),
+    operacion: Joi.string().valid('set', 'add', 'subtract').default('set'),
+    observaciones: Joi.string().max(200).optional()
+  }),
+
   repuesto: Joi.object({
     nombre: Joi.string().required(),
     descripcion: Joi.string().optional(),
@@ -139,7 +331,48 @@ const schemas = {
     ubicacion: Joi.string().optional()
   }),
 
-  // Herramienta
+  // Herramientas
+  createHerramienta: Joi.object({
+    nombre: Joi.string().min(2).max(100).required(),
+    descripcion: Joi.string().max(500).optional(),
+    marca: Joi.string().max(50).optional(),
+    modelo: Joi.string().max(50).optional(),
+    categoria: Joi.string().max(50).optional(),
+    estado: Joi.string().valid('EXCELENTE', 'BUENO', 'REGULAR', 'MALO', 'REPARACION').default('BUENO'),
+    ubicacion: Joi.string().max(100).optional(),
+    codigoInterno: Joi.string().max(50).optional(),
+    fechaAdquisicion: Joi.date().optional(),
+    valorAdquisicion: Joi.number().positive().optional(),
+    mantenimiento: Joi.string().max(500).optional()
+  }),
+
+  updateHerramienta: Joi.object({
+    nombre: Joi.string().min(2).max(100).optional(),
+    descripcion: Joi.string().max(500).optional(),
+    marca: Joi.string().max(50).optional(),
+    modelo: Joi.string().max(50).optional(),
+    categoria: Joi.string().max(50).optional(),
+    estado: Joi.string().valid('EXCELENTE', 'BUENO', 'REGULAR', 'MALO', 'REPARACION').optional(),
+    ubicacion: Joi.string().max(100).optional(),
+    codigoInterno: Joi.string().max(50).optional(),
+    fechaAdquisicion: Joi.date().optional(),
+    valorAdquisicion: Joi.number().positive().optional(),
+    mantenimiento: Joi.string().max(500).optional(),
+    disponible: Joi.boolean().optional(),
+    isActive: Joi.boolean().optional()
+  }),
+
+  asignarHerramienta: Joi.object({
+    tecnicoId: Joi.number().integer().positive().required(),
+    fechaAsignacion: Joi.date().optional(),
+    observaciones: Joi.string().max(200).optional()
+  }),
+
+  devolverHerramienta: Joi.object({
+    estadoDevolucion: Joi.string().valid('EXCELENTE', 'BUENO', 'REGULAR', 'MALO', 'REPARACION').optional(),
+    observaciones: Joi.string().max(200).optional()
+  }),
+
   herramienta: Joi.object({
     nombre: Joi.string().required(),
     descripcion: Joi.string().optional(),

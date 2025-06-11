@@ -1,9 +1,13 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
+import AuthContext from '../../context/AuthContext';
+import clienteService from '../../services/cliente.service';
 import { showAlert } from '../../utils/sweetAlert';
 
-const ClienteForm = ({ cliente, onClose }) => {
+const ClienteForm = ({ cliente, onClose, onSuccess }) => {
   const { addItem, updateItem, getNextId } = useContext(DataContext);
+  const { useBackend } = useContext(AuthContext);
+  const [loading, setLoading] = useState(false);
   
   // Ubicaciones predefinidas para empresas
   const ubicacionesDisponibles = [
@@ -51,12 +55,82 @@ const ClienteForm = ({ cliente, onClose }) => {
     equipos: []
   });
   const [showSuccess, setShowSuccess] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [originalData, setOriginalData] = useState({});
 
   useEffect(() => {
     if (cliente) {
-      setFormData(cliente);
+      const clienteData = {
+        ...cliente,
+        ciudad: cliente.ciudad || 'Lima',
+        distrito: cliente.distrito || ''
+      };
+      setFormData(clienteData);
+      setOriginalData(clienteData); // Guardar datos originales para comparar
+      
+      // Si el cliente tiene una imagen, no necesitamos preview ya que se mostrará la imagen actual
+      setAvatarPreview(null);
+      setAvatarFile(null);
     }
   }, [cliente]);
+
+  // Función de validación
+  const validateField = (name, value) => {
+    let error = '';
+    
+    // Solo validar si estamos creando (no editando)
+    if (cliente) return error; // Si estamos editando, no validar
+    
+    switch(name) {
+      case 'nombre':
+      case 'apellido':
+        if (!value?.trim()) error = 'Este campo es requerido';
+        else if (value.trim().length < 2) error = 'Debe tener al menos 2 caracteres';
+        break;
+      case 'dni':
+        if (formData.tipo === 'persona') {
+          if (!value?.trim()) error = 'El DNI es requerido';
+          else if (!/^[0-9]{8}$/.test(value)) error = 'El DNI debe tener 8 dígitos';
+        }
+        break;
+      case 'telefono':
+        if (!value?.trim()) error = 'El teléfono es requerido';
+        else if (!/^[0-9+\-\s()]+$/.test(value)) error = 'Formato de teléfono inválido';
+        break;
+      case 'email':
+        if (!value?.trim()) error = 'El email es requerido';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) error = 'Email inválido';
+        break;
+      case 'direccion':
+        if (!value?.trim()) error = 'La dirección es requerida';
+        break;
+      case 'distrito':
+        if (!value?.trim()) error = 'El distrito es requerido';
+        break;
+      case 'razonSocial':
+        if (formData.tipo === 'empresa' && !value?.trim()) error = 'La razón social es requerida';
+        break;
+      case 'ruc':
+        if (formData.tipo === 'empresa') {
+          if (!value?.trim()) error = 'El RUC es requerido';
+          else if (!/^[0-9]{11}$/.test(value)) error = 'El RUC debe tener 11 dígitos';
+        }
+        break;
+      case 'username':
+        if (!value?.trim()) error = 'El usuario es requerido';
+        else if (value.length < 4) error = 'Mínimo 4 caracteres';
+        break;
+      case 'password':
+        if (!value?.trim()) error = 'La contraseña es requerida';
+        else if (value.length < 6) error = 'Mínimo 6 caracteres';
+        break;
+      default:
+        break;
+    }
+    
+    return error;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -67,29 +141,153 @@ const ClienteForm = ({ cliente, onClose }) => {
     }));
   };
 
+  // Manejar cambio de archivo de avatar
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/')) {
+        showAlert('Solo se permiten archivos de imagen', 'error');
+        return;
+      }
+      
+      // Validar tamaño (5MB máximo)
+      if (file.size > 5 * 1024 * 1024) {
+        showAlert('El archivo es demasiado grande. Máximo 5MB', 'error');
+        return;
+      }
+      
+      setAvatarFile(file);
+      
+      // Crear preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setAvatarPreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
 
   const handleSubmit = async (e) => {
+    console.log('🚀 === INICIO SUBMIT CLIENTE FRONTEND ===');
     e.preventDefault();
-
-
-    const clienteData = {
-      ...formData,
-      equipos: cliente ? formData.equipos : []
-    };
-
-    if (cliente) {
-      updateItem('clientes', cliente.id, clienteData);
-    } else {
-      addItem('clientes', {
-        ...clienteData,
-        id: getNextId('clientes')
+    console.log('📝 Datos del formulario:', JSON.stringify(formData, null, 2));
+    console.log('📷 Archivo seleccionado:', avatarFile ? {
+      name: avatarFile.name,
+      size: avatarFile.size,
+      type: avatarFile.type
+    } : 'No hay archivo');
+    
+    // Validar todos los campos si estamos creando
+    if (!cliente) {
+      const errors = {};
+      Object.keys(formData).forEach(key => {
+        const error = validateField(key, formData[key]);
+        if (error) errors[key] = error;
       });
+      
+      if (Object.keys(errors).length > 0) {
+        console.log('❌ Errores de validación:', errors);
+        // Mostrar primer error encontrado
+        const firstError = Object.values(errors)[0];
+        showAlert(firstError, 'error');
+        setLoading(false);
+        return;
+      }
     }
 
-    setShowSuccess(true);
-    setTimeout(() => {
-      onClose();
-    }, 1500);
+    setLoading(true);
+
+    try {
+      if (useBackend) {
+        console.log('🌐 Usando backend real...');
+        
+        let clienteData;
+        
+        if (cliente) {
+          // MODO EDICIÓN: Solo enviar campos que han cambiado
+          console.log('🔄 Actualizando cliente existente - solo campos modificados...');
+          clienteData = {};
+          
+          // Comparar cada campo y solo incluir los que han cambiado
+          Object.keys(formData).forEach(key => {
+            // Excluir campos que no queremos actualizar en edición
+            if (key === 'equipos' || key === 'id') return;
+            
+            const newValue = formData[key] || '';
+            const originalValue = originalData[key] || '';
+            if (newValue !== originalValue) {
+              clienteData[key] = newValue;
+              console.log(`🔄 Campo modificado: ${key} = "${originalValue}" -> "${newValue}"`);
+            }
+          });
+          
+          console.log('📝 Solo enviando campos modificados:', clienteData);
+          console.log('📷 Archivo de avatar:', avatarFile ? avatarFile.name : 'Sin cambio');
+        } else {
+          // MODO CREACIÓN: Enviar todos los datos
+          console.log('➕ Creando nuevo cliente...');
+          clienteData = {
+            ...formData,
+            username: formData.username || formData.email.split('@')[0], // Generar username si no existe
+            password: formData.password || '123456' // Contraseña por defecto si no se proporciona
+          };
+        }
+        
+        let result;
+        if (cliente) {
+          result = await clienteService.update(cliente.id, clienteData, avatarFile);
+        } else {
+          result = await clienteService.create(clienteData, avatarFile);
+        }
+        console.log('📡 Respuesta del servicio:', result);
+        
+        if (result.success) {
+          console.log('✅ Éxito en la creación/actualización');
+          setShowSuccess(true);
+          showAlert(result.message || `Cliente ${cliente ? 'actualizado' : 'creado'} exitosamente`, 'success');
+          
+          if (onSuccess) {
+            console.log('🔄 Llamando callback onSuccess...');
+            onSuccess(result.data);
+          }
+          
+          setTimeout(() => {
+            onClose();
+          }, 1500);
+        } else {
+          console.log('❌ Error en la respuesta:', result.message);
+          showAlert(result.message || 'Error al procesar la solicitud', 'error');
+        }
+      } else {
+        // Usar DataContext (modo estático)
+        const clienteData = {
+          ...formData,
+          equipos: cliente ? formData.equipos : []
+        };
+
+        if (cliente) {
+          updateItem('clientes', cliente.id, clienteData);
+        } else {
+          addItem('clientes', {
+            ...clienteData,
+            id: getNextId('clientes')
+          });
+        }
+
+        setShowSuccess(true);
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('💥 ERROR EN FRONTEND:', error);
+      showAlert('Error al procesar la solicitud', 'error');
+    } finally {
+      setLoading(false);
+    }
+    console.log('🏁 === FIN SUBMIT CLIENTE ===');
   };
 
   return (
@@ -104,8 +302,27 @@ const ClienteForm = ({ cliente, onClose }) => {
       {/* Profile Image Section */}
       <div className="flex flex-col items-center space-y-4">
         <div className="relative">
-          <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-300">
-            <i className="fas fa-user text-4xl text-gray-400"></i>
+          <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-300 overflow-hidden">
+            {avatarPreview ? (
+              <img 
+                src={avatarPreview} 
+                alt="Vista previa" 
+                className="w-full h-full object-cover"
+              />
+            ) : cliente?.profileImage ? (
+              <img 
+                src={`${process.env.REACT_APP_API_URL || 'http://localhost:2001'}/uploads/${cliente.profileImage}`} 
+                alt="Foto actual" 
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  console.log('❌ Error cargando imagen:', e.target.src);
+                  e.target.style.display = 'none';
+                  e.target.parentNode.innerHTML = '<i class="fas fa-user text-4xl text-gray-400"></i>';
+                }}
+              />
+            ) : (
+              <i className="fas fa-user text-4xl text-gray-400"></i>
+            )}
           </div>
         </div>
         
@@ -115,14 +332,23 @@ const ClienteForm = ({ cliente, onClose }) => {
             accept="image/*"
             className="hidden"
             id="profile-image-input-cliente"
+            onChange={handleAvatarChange}
           />
           <label
             htmlFor="profile-image-input-cliente"
             className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
           >
             <i className="fas fa-camera"></i>
-            <span className="text-sm">Cambiar foto</span>
+            <span className="text-sm">{avatarPreview || cliente?.profileImage ? 'Cambiar foto' : 'Agregar foto'}</span>
           </label>
+          <p className="text-xs text-gray-500 mt-1">
+            Foto de perfil opcional (máximo 5MB)
+          </p>
+          {avatarFile && (
+            <p className="text-xs text-green-600 mt-1">
+              ✓ Archivo seleccionado: {avatarFile.name}
+            </p>
+          )}
         </div>
       </div>
 
@@ -157,7 +383,7 @@ const ClienteForm = ({ cliente, onClose }) => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Razón Social *
+                    Razón Social {!cliente && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
@@ -165,13 +391,13 @@ const ClienteForm = ({ cliente, onClose }) => {
                     value={formData.razonSocial || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    required
+                    required={!cliente}
                     placeholder="Ej: Mi Empresa S.A.C."
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    RUC *
+                    RUC {!cliente && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
@@ -179,7 +405,7 @@ const ClienteForm = ({ cliente, onClose }) => {
                     value={formData.ruc || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    required
+                    required={!cliente}
                     pattern="[0-9]{11}"
                     title="El RUC debe tener 11 dígitos"
                     placeholder="12345678901"
@@ -187,7 +413,7 @@ const ClienteForm = ({ cliente, onClose }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Corporativo *
+                    Email Corporativo {!cliente && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="email"
@@ -195,7 +421,7 @@ const ClienteForm = ({ cliente, onClose }) => {
                     value={formData.email || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    required
+                    required={!cliente}
                     placeholder="contacto@empresa.com"
                   />
                 </div>
@@ -313,7 +539,7 @@ const ClienteForm = ({ cliente, onClose }) => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre *
+                    Nombre {!cliente && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
@@ -321,13 +547,13 @@ const ClienteForm = ({ cliente, onClose }) => {
                     value={formData.nombre || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    required
+                    required={!cliente}
                     placeholder="Juan"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Apellido *
+                    Apellido {!cliente && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
@@ -335,13 +561,13 @@ const ClienteForm = ({ cliente, onClose }) => {
                     value={formData.apellido || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    required
+                    required={!cliente}
                     placeholder="Pérez"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    DNI *
+                    DNI {!cliente && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
@@ -349,7 +575,7 @@ const ClienteForm = ({ cliente, onClose }) => {
                     value={formData.dni || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    required
+                    required={!cliente}
                     pattern="[0-9]{8}"
                     title="El DNI debe tener 8 dígitos"
                     placeholder="12345678"
@@ -357,7 +583,7 @@ const ClienteForm = ({ cliente, onClose }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Teléfono *
+                    Teléfono {!cliente && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="tel"
@@ -365,13 +591,13 @@ const ClienteForm = ({ cliente, onClose }) => {
                     value={formData.telefono || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    required
+                    required={!cliente}
                     placeholder="987654321"
                   />
                 </div>
                 <div className="lg:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
+                    Email {!cliente && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="email"
@@ -379,13 +605,13 @@ const ClienteForm = ({ cliente, onClose }) => {
                     value={formData.email || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    required
+                    required={!cliente}
                     placeholder="juan.perez@email.com"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Dirección *
+                    Dirección {!cliente && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
@@ -393,13 +619,13 @@ const ClienteForm = ({ cliente, onClose }) => {
                     value={formData.direccion || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    required
+                    required={!cliente}
                     placeholder="Av. Principal 123"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Distrito *
+                    Distrito {!cliente && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
@@ -407,7 +633,7 @@ const ClienteForm = ({ cliente, onClose }) => {
                     value={formData.distrito || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    required
+                    required={!cliente}
                     placeholder="Miraflores"
                   />
                 </div>

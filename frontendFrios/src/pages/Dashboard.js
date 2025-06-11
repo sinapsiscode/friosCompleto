@@ -9,7 +9,7 @@ import AdminDashboard from './Admin/AdminDashboard';
 import Servicios from './Admin/Servicios';
 import Tecnicos from './Admin/Tecnicos';
 import Clientes from './Admin/Clientes';
-import Repuestos from './Admin/Repuestos';
+import RepuestosFormulario from './Admin/RepuestosFormulario';
 import Estadisticas from './Admin/Estadisticas';
 import DiagramaGantt from './Admin/DiagramaGantt';
 import ConfigurarPerfil from './Admin/ConfigurarPerfil';
@@ -36,7 +36,7 @@ const Dashboard = () => {
   };
 
   const getRoutes = () => {
-    switch (user?.userType) {
+    switch (user?.userType || user?.role?.toLowerCase()) {
       case 'admin':
         return (
           <>
@@ -45,11 +45,11 @@ const Dashboard = () => {
             <Route path="/solicitar-servicio" element={<SolicitarServicio />} />
             <Route path="/tecnicos" element={<Tecnicos />} />
             <Route path="/clientes" element={<Clientes />} />
-            <Route path="/repuestos" element={<Repuestos />} />
+            <Route path="/repuestos" element={<RepuestosFormulario />} />
             <Route path="/estadisticas" element={<Estadisticas />} />
             <Route path="/diagrama" element={<DiagramaGantt />} />
             <Route path="/configurar-perfil" element={<ConfigurarPerfil />} />
-            <Route path="/" element={<Navigate to="/dashboard" />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </>
         );
       case 'tecnico':
@@ -60,7 +60,7 @@ const Dashboard = () => {
             <Route path="/solicitar-servicio" element={<SolicitarServicio />} />
             <Route path="/mis-evaluaciones" element={<MisEvaluaciones />} />
             <Route path="/historial-trabajos" element={<HistorialTrabajos />} />
-            <Route path="/" element={<Navigate to="/dashboard" />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </>
         );
       case 'cliente':
@@ -70,22 +70,20 @@ const Dashboard = () => {
             <Route path="/solicitar-servicio" element={<SolicitarServicio />} />
             <Route path="/mis-equipos" element={<MisEquipos />} />
             <Route path="/evaluaciones" element={<Evaluaciones />} />
-            <Route path="/" element={<Navigate to="/dashboard" />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </>
         );
       default:
-        return <Route path="*" element={<Navigate to="/login" />} />;
+        return <Route path="*" element={<Navigate to="/login" replace />} />;
     }
   };
 
   return (
     <div className="flex min-h-screen w-full bg-gray-50 relative">
-      <Sidebar collapsed={sidebarCollapsed} toggleSidebar={toggleSidebar} />
-      <div className={`flex flex-col bg-gray-50 min-h-screen flex-1 transition-all duration-300 ${
-        sidebarCollapsed ? 'ml-0 lg:ml-20' : 'ml-0 lg:ml-[260px]'
-      }`}>
-        <Header toggleSidebar={toggleSidebar} sidebarCollapsed={sidebarCollapsed} />
-        <div className="flex-1 p-0 pt-16 lg:pt-[100px] overflow-y-auto bg-gray-50">
+      <Sidebar collapsed={false} toggleSidebar={toggleSidebar} />
+      <div className={`flex flex-col bg-gray-50 min-h-screen flex-1 transition-all duration-300 ml-0 lg:ml-[260px]`}>
+        <Header toggleSidebar={toggleSidebar} sidebarCollapsed={false} />
+        <div className="flex-1 p-6 pt-20 overflow-y-auto bg-gray-50">
           <Routes>
             {getRoutes()}
           </Routes>

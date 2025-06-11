@@ -9,6 +9,19 @@ const TecnicoDashboard = () => {
   // Buscar el técnico actual
   const tecnicoActual = data.tecnicos.find(t => t.usuario === user.username) || data.tecnicos[0];
   
+  // Si no hay técnico, mostrar mensaje de error
+  if (!tecnicoActual) {
+    return (
+      <div className="w-full min-h-screen p-6 flex items-center justify-center">
+        <div className="text-center">
+          <i className="fas fa-user-slash text-6xl text-gray-300 mb-4"></i>
+          <h2 className="text-2xl font-bold text-gray-700 mb-2">Técnico no encontrado</h2>
+          <p className="text-gray-500">No se encontró información del técnico para el usuario: {user.username}</p>
+        </div>
+      </div>
+    );
+  }
+  
   // Filtrar servicios del técnico
   const misServicios = data.servicios.filter(s => s.tecnicoId === tecnicoActual.id);
   const pendientes = misServicios.filter(s => s.estado === 'pendiente');

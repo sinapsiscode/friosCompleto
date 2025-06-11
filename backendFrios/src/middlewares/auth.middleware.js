@@ -3,11 +3,18 @@ const prisma = require('../config/database');
 
 // Middleware para verificar autenticación
 const authenticateToken = async (req, res, next) => {
+  console.log('🔐 === MIDDLEWARE AUTH ===');
+  console.log('📋 Headers:', req.headers);
+  console.log('🚀 Method:', req.method);
+  console.log('🌐 URL:', req.url);
+  
   try {
     const authHeader = req.headers.authorization;
+    console.log('🔑 Auth header:', authHeader);
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
     if (!token) {
+      console.log('❌ No token provided');
       return res.status(401).json({
         success: false,
         message: 'Token de acceso requerido'
