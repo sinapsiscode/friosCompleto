@@ -252,8 +252,11 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
           </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {/* Debug: Mostrar tipo de usuario */}
+              {console.log('🔍 Tipo de usuario:', user.userType, '| user completo:', user)}
+              
               {/* Selector de cliente para administradores y técnicos */}
-              {(user.userType === 'admin' || user.userType === 'tecnico') && (
+              {(user.userType === 'admin' || user.userType === 'tecnico' || user.role === 'ADMIN' || user.role === 'TECNICO') && (
                 <div className="flex flex-col col-span-full">
                   <label htmlFor="clienteSeleccionado" className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
                     <i className="fas fa-user text-gray-400 text-sm"></i>

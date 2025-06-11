@@ -13,11 +13,18 @@ const authService = {
       if (response.data.success) {
         // Guardar token y datos del usuario en sessionStorage para sesiones independientes
         sessionStorage.setItem('token', response.data.token);
-        sessionStorage.setItem('user', JSON.stringify(response.data.user));
+        
+        // Agregar userType basado en role
+        const user = {
+          ...response.data.user,
+          userType: response.data.user.role?.toLowerCase() || 'cliente'
+        };
+        
+        sessionStorage.setItem('user', JSON.stringify(user));
         
         return {
           success: true,
-          user: response.data.user,
+          user: user,
           token: response.data.token
         };
       }
@@ -68,7 +75,15 @@ const authService = {
   // Obtener usuario actual
   getCurrentUser() {
     const user = sessionStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
+    if (!user) return null;
+    
+    const parsedUser = JSON.parse(user);
+    // Asegurar que siempre tenga userType
+    if (!parsedUser.userType && parsedUser.role) {
+      parsedUser.userType = parsedUser.role.toLowerCase();
+    }
+    
+    return parsedUser;
   }
 };
 
