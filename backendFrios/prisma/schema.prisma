@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  role      Role     @default(CLIENTE)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  admin     Administrador?
+  tecnico   Tecnico?
+  cliente   Cliente?
+
+  @@map("usuarios")
+}
+
+model Administrador {
+  id        Int      @id @default(autoincrement())
+  userId    String   @unique
+  nombre    String
+  apellido  String
+  email     String   @unique
+  telefono  String?
+  direccion String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  usuario Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("administradores")
+}
+
+model Tecnico {
+  id                 Int      @id @default(autoincrement())
+  userId             String   @unique
+  nombre             String
+  apellido           String
+  email              String   @unique
+  telefono           String?
+  direccion          String?
+  especialidad       String?
+  disponibilidad     String?
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relaciones
+  usuario            Usuario    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviciosAsignados Servicio[]
+
+  @@map("tecnicos")
+}
+
+model Cliente {
+  id        Int      @id @default(autoincrement())
+  userId    String   @unique
+  nombre    String
+  apellido  String
+  email     String   @unique
+  telefono  String?
+  direccion String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  usuario  Usuario    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  equipos  Equipo[]
+  servicios Servicio[]
+
+  @@map("clientes")
+}
+
+model Equipo {
+  id            Int      @id @default(autoincrement())
+  clienteId     Int
+  nombre        String
+  tipo          String
+  marca         String?
+  modelo        String?
+  numeroSerie   String?
+  ubicacion     String?
+  descripcion   String?
+  fechaInstalacion DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  cliente   Cliente    @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  servicios Servicio[]
+
+  @@map("equipos")
+}
+
+model Servicio {
+  id               String          @id // ODT-XXX format
+  clienteId        Int
+  equipoId         Int?
+  tecnicoId        Int?
+  tipoServicio     String
+  descripcion      String
+  fechaSolicitud   DateTime        @default(now())
+  fechaProgramada  DateTime?
+  fechaCompletado  DateTime?
+  estado           EstadoServicio  @default(PENDIENTE)
+  prioridad        Prioridad       @default(MEDIA)
+  observaciones    String?
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  // JSON fields para flexibilidad
+  detalles         Json?
+  evaluacion       Json?
+
+  // Relaciones
+  cliente  Cliente  @relation(fields: [clienteId], references: [id])
+  equipo   Equipo?  @relation(fields: [equipoId], references: [id])
+  tecnico  Tecnico? @relation(fields: [tecnicoId], references: [id])
+
+  @@map("servicios")
+}
+
+model Repuesto {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+  marca       String?
+  modelo      String?
+  categoria   String?
+  precio      Decimal? @db.Decimal(10, 2)
+  stock       Int      @default(0)
+  stockMinimo Int      @default(5)
+  ubicacion   String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("repuestos")
+}
+
+model Herramienta {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+  marca       String?
+  modelo      String?
+  categoria   String?
+  estado      String?
+  ubicacion   String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("herramientas")
+}
+
+// Enums
+enum Role {
+  ADMIN
+  TECNICO
+  CLIENTE
+}
+
+enum EstadoServicio {
+  PENDIENTE
+  PROCESO
+  COMPLETADO
+  CANCELADO
+}
+
+enum Prioridad {
+  BAJA
+  MEDIA
+  ALTA
+  URGENTE
+}

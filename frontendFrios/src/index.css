@@ -1,0 +1,244 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom CSS que no se puede hacer con Tailwind */
+@layer base {
+  html, body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    color: #141619;
+    background-color: #f0f2f5;
+    line-height: 1.6;
+  }
+  
+  *, *::before, *::after {
+    box-sizing: inherit;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  
+  h1 { font-size: 2.5rem; }
+  h2 { font-size: 2rem; }
+  h3 { font-size: 1.75rem; }
+  h4 { font-size: 1.5rem; }
+  h5 { font-size: 1.25rem; }
+  h6 { font-size: 1.125rem; }
+}
+
+@layer components {
+  /* Botones base */
+  .btn {
+    @apply inline-flex items-center justify-center px-md py-sm rounded-lg font-medium transition-all duration-300 cursor-pointer border;
+  }
+  
+  .btn-primary {
+    @apply bg-primary text-white border-primary hover:bg-primary-dark hover:border-primary-dark;
+  }
+  
+  /* Enhanced primary button with modern effects */
+  .btn-primary-enhanced {
+    @apply btn-primary relative overflow-hidden px-6 py-3 font-semibold tracking-wide shadow-lg hover:shadow-xl transform transition-all duration-300 hover:-translate-y-0.5 hover:scale-105 border-2 border-primary hover:border-primary-dark;
+  }
+  
+  .btn-primary-enhanced span {
+    @apply relative z-10 flex items-center gap-3;
+  }
+  
+  .btn-primary-enhanced::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-primary-dark to-primary opacity-0 transition-opacity duration-300;
+  }
+  
+  .btn-primary-enhanced:hover::before {
+    @apply opacity-100;
+  }
+  
+  .btn-primary-enhanced::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-warning to-warning-light transform scale-x-0 transition-transform duration-500 origin-left;
+  }
+  
+  .btn-primary-enhanced:hover::after {
+    @apply scale-x-100;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 hover:border-gray-300;
+  }
+  
+  .btn-outline {
+    @apply bg-transparent border-gray-300 text-gray-600 hover:bg-gray-50;
+  }
+  
+  .btn-outline.active {
+    @apply bg-primary border-primary text-white;
+  }
+  
+  .btn-outline-primary {
+    @apply btn bg-transparent border-primary text-primary hover:bg-primary hover:text-white;
+  }
+  
+  /* Form controls */
+  .form-control {
+    @apply w-full px-md py-sm border border-gray-300 rounded-lg text-gray-900 bg-white transition-all duration-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20;
+  }
+  
+  /* Badges y status */
+  .badge {
+    @apply inline-flex items-center px-sm py-xs rounded-full text-xs font-medium;
+  }
+  
+  .badge-primary { @apply bg-primary/20 text-primary-dark; }
+  .badge-secondary { @apply bg-gray-100 text-gray-700; }
+  .badge-success { @apply bg-success/20 text-success-dark; }
+  .badge-warning { @apply bg-warning/20 text-warning-dark; }
+  .badge-danger { @apply bg-danger/20 text-danger-dark; }
+  .badge-info { @apply bg-info/20 text-info-dark; }
+  
+  /* Status classes legacy */
+  .pendiente { @apply bg-warning/20 text-warning-dark; }
+  .aprobada, .completado { @apply bg-success/20 text-success-dark; }
+  .rechazada { @apply bg-danger/20 text-danger-dark; }
+  .en-progreso { @apply bg-info/20 text-info-dark; }
+  
+  /* Table styles */
+  .data-table {
+    @apply w-full border-collapse mb-md;
+  }
+  
+  .data-table th, .data-table td {
+    @apply px-md py-sm text-left whitespace-nowrap;
+  }
+  
+  .data-table th {
+    @apply bg-gray-50 text-gray-700 font-semibold border-b-2 border-gray-200;
+  }
+  
+  .data-table td {
+    @apply border-b border-gray-100;
+  }
+  
+  .data-table tr:last-child td {
+    @apply border-b-0;
+  }
+}
+
+@layer utilities {
+  /* Loading animation */
+  .loading {
+    @apply flex items-center justify-center h-screen text-gray-600;
+  }
+  
+  /* Smooth scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 rounded hover:bg-gray-500;
+  }
+  
+  /* Enhanced form field */
+  .form-field-enhanced {
+    @apply relative mb-6;
+  }
+  
+  /* Calendar button style */
+  .btn-calendar {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 
+           bg-white border border-gray-200 rounded-lg
+           text-sm font-medium text-gray-700
+           hover:bg-gray-50 hover:border-gray-300
+           transition-all duration-200;
+  }
+  
+  .btn-calendar i {
+    @apply text-gray-400;
+  }
+  
+  /* Animation for success notification */
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  .animate-slideInRight {
+    animation: slideInRight 0.3s ease-out;
+  }
+  
+  /* Modal animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  .animate-slideUp {
+    animation: slideUp 0.3s ease-out;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+  
+  /* Admin Dashboard responsive */
+  .admin-dashboard-grid {
+    @apply grid-cols-1;
+  }
+}
+
+@media (max-width: 768px) {
+  .btn {
+    @apply px-xs py-xs text-sm;
+  }
+  
+  /* Admin Dashboard mobile */
+  .admin-dashboard-stats {
+    @apply grid-cols-1;
+  }
+  
+  .admin-dashboard-metrics {
+    @apply grid-cols-1;
+  }
+  
+  .admin-dashboard-header {
+    @apply flex-col text-center gap-lg;
+  }
+}
