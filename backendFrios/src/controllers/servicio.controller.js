@@ -82,6 +82,9 @@ const servicioController = {
           skip: parseInt(skip),
           take: parseInt(limit),
           include: {
+            cliente: {
+              select: { id: true, nombre: true, apellido: true, razonSocial: true, telefono: true, email: true }
+            },
             equipo: {
               include: {
                 cliente: {
@@ -91,6 +94,13 @@ const servicioController = {
             },
             tecnico: {
               select: { id: true, nombre: true, apellido: true, telefono: true, especialidad: true }
+            },
+            equiposServicio: {
+              include: {
+                equipo: {
+                  select: { id: true, nombre: true, tipo: true, marca: true, modelo: true }
+                }
+              }
             }
           },
           orderBy: [

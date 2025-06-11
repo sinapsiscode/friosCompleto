@@ -125,6 +125,13 @@ const EquipoForm = ({ equipo, clienteId, onClose, onSave }) => {
     
     if (isSubmitting) return;
     
+    // Verificar que tenemos un clienteId válido
+    const clienteIdToUse = equipo ? equipo.clienteId : clienteId;
+    if (!clienteIdToUse || isNaN(parseInt(clienteIdToUse))) {
+      showAlert('Error: No se ha seleccionado un cliente válido', 'error');
+      return;
+    }
+    
     // Validate all fields
     const newErrors = {};
     ['tipo', 'marca', 'modelo', 'ubicacion'].forEach(field => {
@@ -143,7 +150,7 @@ const EquipoForm = ({ equipo, clienteId, onClose, onSave }) => {
     try {
       const equipoData = {
         ...formData,
-        clienteId: equipo ? equipo.clienteId : parseInt(clienteId),
+        clienteId: parseInt(clienteIdToUse),
         fechaInstalacion: formData.fechaInstalacion || new Date().toISOString().split('T')[0]
       };
       

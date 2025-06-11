@@ -2,6 +2,7 @@ const express = require('express');
 const equipoController = require('../controllers/equipo.controller');
 const { authenticateToken, requireRole } = require('../middlewares/auth.middleware');
 const { validate, schemas } = require('../middlewares/validation.middleware');
+const { uploadEquipoImagen, handleUploadError } = require('../config/upload');
 
 const router = express.Router();
 
@@ -23,14 +24,16 @@ router.get('/:id',
 // POST /api/equipos - Crear nuevo equipo
 router.post('/',
   requireRole(['ADMIN']),
-  validate(schemas.createEquipo),
+  uploadEquipoImagen,
+  handleUploadError,
   equipoController.create
 );
 
 // PUT /api/equipos/:id - Actualizar equipo
 router.put('/:id',
   requireRole(['ADMIN']),
-  validate(schemas.updateEquipo),
+  uploadEquipoImagen,
+  handleUploadError,
   equipoController.update
 );
 

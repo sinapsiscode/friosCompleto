@@ -236,11 +236,11 @@ const Servicios = () => {
   };
 
   const getProgramacionInfo = (servicio) => {
-    if (servicio.tipo === 'correctivo') {
+    if (servicio.tipoServicio === 'Correctivo') {
       return {
         text: 'Única vez',
         icon: 'fa-calendar-day',
-        detail: servicio.horaPreferida ? `Hora: ${servicio.horaPreferida}` : null
+        detail: servicio.fechaProgramada ? new Date(servicio.fechaProgramada).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : null
       };
     }
     
@@ -466,26 +466,29 @@ const Servicios = () => {
               </tr>
             ) : (
               filteredServicios.map(servicio => {
-              const cliente = data.clientes.find(c => c.id === servicio.clienteId);
-              const tecnico = data.tecnicos.find(t => t.id === servicio.tecnicoId);
+              // Usar datos del servicio que vienen con las relaciones incluidas
+              const cliente = servicio.cliente || clientesActuales.find(c => c.id === servicio.clienteId);
+              const tecnico = servicio.tecnico || tecnicosActuales.find(t => t.id === servicio.tecnicoId);
+              const fechaMostrar = servicio.fechaProgramada || servicio.fechaSolicitud;
+              
               return (
                 <tr key={servicio.id} className="transition-all duration-200 border-b border-gray-100 hover:bg-primary/10 hover:transform hover:translate-x-0.5 last:border-b-0">
-                  <td className="py-4 px-6 text-gray-800 text-base">{new Date(servicio.fecha).toLocaleDateString()}</td>
-                  <td className="py-4 px-6 text-gray-800 text-base">{cliente?.razonSocial || `${cliente?.nombre} ${cliente?.apellido}`}</td>
+                  <td className="py-4 px-6 text-gray-800 text-base">{fechaMostrar ? new Date(fechaMostrar).toLocaleDateString() : 'Sin fecha'}</td>
+                  <td className="py-4 px-6 text-gray-800 text-base">{cliente?.razonSocial || `${cliente?.nombre} ${cliente?.apellido}` || 'Sin cliente'}</td>
                   <td className="py-4 px-6 text-gray-800 text-base">
-                    {servicio.solicitadoPor ? (
+                    {servicio.detalles?.solicitadoPor ? (
                       <span className={`inline-flex items-center gap-1 py-1 px-3 rounded-full text-xs font-medium ${
-                        servicio.solicitadoPor.tipo === 'admin' ? 'bg-purple-100 text-purple-700' :
-                        servicio.solicitadoPor.tipo === 'tecnico' ? 'bg-blue-100 text-blue-700' :
+                        servicio.detalles.solicitadoPor === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
+                        servicio.detalles.solicitadoPor === 'TECNICO' ? 'bg-blue-100 text-blue-700' :
                         'bg-green-100 text-green-700'
                       }`}>
                         <i className={`fas ${
-                          servicio.solicitadoPor.tipo === 'admin' ? 'fa-user-shield' :
-                          servicio.solicitadoPor.tipo === 'tecnico' ? 'fa-user-cog' :
+                          servicio.detalles.solicitadoPor === 'ADMIN' ? 'fa-user-shield' :
+                          servicio.detalles.solicitadoPor === 'TECNICO' ? 'fa-user-cog' :
                           'fa-user'
                         } text-xs`}></i>
-                        {servicio.solicitadoPor.tipo === 'admin' ? 'Administrador' :
-                         servicio.solicitadoPor.tipo === 'tecnico' ? 'Técnico' :
+                        {servicio.detalles.solicitadoPor === 'ADMIN' ? 'Administrador' :
+                         servicio.detalles.solicitadoPor === 'TECNICO' ? 'Técnico' :
                          'Cliente'}
                       </span>
                     ) : (
@@ -500,11 +503,11 @@ const Servicios = () => {
                     )}
                   </td>
                   <td className="py-4 px-6 text-gray-800 text-base">
-                    <span className={`inline-flex items-center gap-1 py-1 px-3 rounded-full text-xs font-semibold uppercase tracking-wide leading-none whitespace-nowrap transition-all duration-200 ${servicio.tipo === 'programado' ? 'bg-info/10 text-info' : servicio.tipo === 'correctivo' ? 'bg-warning/10 text-warning' : 'bg-gray-100 text-gray-700'}`}>
-                      {servicio.tipo === 'programado' && <i className="fas fa-calendar-check text-xs mr-0.5"></i>}
-                      {servicio.tipo === 'correctivo' && <i className="fas fa-wrench text-xs mr-0.5"></i>}
-                      {servicio.tipo === 'preventivo' && <i className="fas fa-shield-alt text-xs mr-0.5"></i>}
-                      {servicio.tipo || 'N/A'}
+                    <span className={`inline-flex items-center gap-1 py-1 px-3 rounded-full text-xs font-semibold uppercase tracking-wide leading-none whitespace-nowrap transition-all duration-200 ${servicio.tipoServicio === 'Programado' ? 'bg-info/10 text-info' : servicio.tipoServicio === 'Correctivo' ? 'bg-warning/10 text-warning' : 'bg-gray-100 text-gray-700'}`}>
+                      {servicio.tipoServicio === 'Programado' && <i className="fas fa-calendar-check text-xs mr-0.5"></i>}
+                      {servicio.tipoServicio === 'Correctivo' && <i className="fas fa-wrench text-xs mr-0.5"></i>}
+                      {servicio.tipoServicio === 'Preventivo' && <i className="fas fa-shield-alt text-xs mr-0.5"></i>}
+                      {servicio.tipoServicio || 'N/A'}
                     </span>
                   </td>
                   <td className="py-4 px-6 text-gray-800 text-base">

@@ -194,7 +194,7 @@ const schemas = {
   // Equipos
   createEquipo: Joi.object({
     clienteId: Joi.number().integer().positive().required(),
-    nombre: Joi.string().min(2).max(100).required(),
+    nombre: Joi.string().min(2).max(100).optional(),
     tipo: Joi.string().min(2).max(50).required(),
     marca: Joi.string().max(50).optional(),
     modelo: Joi.string().max(50).optional(),
@@ -202,6 +202,9 @@ const schemas = {
     ubicacion: Joi.string().max(200).optional(),
     descripcion: Joi.string().max(500).optional(),
     fechaInstalacion: Joi.date().optional(),
+    fechaCompra: Joi.date().optional(),
+    capacidad: Joi.string().max(100).optional(),
+    estadoOperativo: Joi.string().valid('operativo', 'mantenimiento', 'reparacion', 'inactivo').optional(),
     especificacionesTecnicas: Joi.string().max(1000).optional(),
     garantia: Joi.string().max(200).optional()
   }),
@@ -215,6 +218,9 @@ const schemas = {
     ubicacion: Joi.string().max(200).optional(),
     descripcion: Joi.string().max(500).optional(),
     fechaInstalacion: Joi.date().optional(),
+    fechaCompra: Joi.date().optional(),
+    capacidad: Joi.string().max(100).optional(),
+    estadoOperativo: Joi.string().valid('operativo', 'mantenimiento', 'reparacion', 'inactivo').optional(),
     especificacionesTecnicas: Joi.string().max(1000).optional(),
     garantia: Joi.string().max(200).optional(),
     isActive: Joi.boolean().optional()
