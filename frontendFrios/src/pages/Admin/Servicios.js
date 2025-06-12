@@ -366,40 +366,15 @@ const Servicios = () => {
             </div>
             <div className="p-6 overflow-y-auto" style={{maxHeight: 'calc(90vh - 200px)'}}>
               <CalendarioServicios 
-                servicios={data.servicios}
+                servicios={serviciosActuales}
                 onSelectDate={handleCalendarDateClick}
+                onBack={() => setShowCalendario(false)}
               />
-              <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 mb-2">Órdenes Pendientes</h4>
-                  <p className="text-3xl font-bold text-blue-600">
-                    {data.servicios.filter(s => s.estado === 'pendiente').length}
-                  </p>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-green-900 mb-2">En Proceso</h4>
-                  <p className="text-3xl font-bold text-green-600">
-                    {data.servicios.filter(s => s.estado === 'proceso').length}
-                  </p>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-purple-900 mb-2">Completados este mes</h4>
-                  <p className="text-3xl font-bold text-purple-600">
-                    {data.servicios.filter(s => {
-                      const now = new Date();
-                      const serviceDate = new Date(s.fecha);
-                      return s.estado === 'completado' && 
-                             serviceDate.getMonth() === now.getMonth() && 
-                             serviceDate.getFullYear() === now.getFullYear();
-                    }).length}
-                  </p>
-                </div>
-              </div>
             </div>
             <div className="p-6 border-t border-gray-200 bg-gray-50">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-gray-600">
-                  Total de órdenes de servicio: <span className="font-semibold">{data.servicios.length}</span>
+                  Total de órdenes de servicio: <span className="font-semibold">{serviciosActuales.length}</span>
                 </p>
                 <button
                   onClick={() => setShowCalendario(false)}

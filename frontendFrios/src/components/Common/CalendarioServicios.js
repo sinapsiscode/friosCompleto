@@ -33,7 +33,11 @@ const CalendarioServicios = ({ onBack, servicios }) => {
   const getServiciosForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0];
     const serviciosToUse = servicios || data.servicios;
-    return serviciosToUse.filter(s => s.fecha === dateStr);
+    return serviciosToUse.filter(s => {
+      if (!s.fechaProgramada) return false;
+      const servicioDate = new Date(s.fechaProgramada).toISOString().split('T')[0];
+      return servicioDate === dateStr;
+    });
   };
 
   const handleDayClick = (date, servicios) => {
@@ -72,9 +76,12 @@ const CalendarioServicios = ({ onBack, servicios }) => {
             <div className="calendario-services">
               {servicios.slice(0, 2).map((servicio, idx) => {
                 const cliente = data.clientes.find(c => c.id === servicio.clienteId);
+                const tipoServicio = servicio.tipoServicio || servicio.tipo;
+                const horaServicio = servicio.rangoHorario || servicio.horaInicio || servicio.hora || '09:00';
+                
                 return (
-                  <div key={idx} className={`calendario-service ${servicio.tipo}`}>
-                    <span className="calendario-service-time">{servicio.hora}</span>
+                  <div key={idx} className={`calendario-service ${tipoServicio === 'programado' ? 'mantenimiento' : tipoServicio === 'correctivo' ? 'reparacion' : 'instalacion'}`}>
+                    <span className="calendario-service-time">{horaServicio}</span>
                     <span className="calendario-service-client">
                       {cliente?.razonSocial || `${cliente?.nombre} ${cliente?.apellido}`}
                     </span>
@@ -141,15 +148,42 @@ const CalendarioServicios = ({ onBack, servicios }) => {
         <div className="calendario-legend-items">
           <div className="calendario-legend-item">
             <span className="calendario-legend-color mantenimiento"></span>
-            <span className="calendario-legend-label">Mantenimiento</span>
+            <span className="calendario-legend-label">Programado</span>
           </div>
           <div className="calendario-legend-item">
             <span className="calendario-legend-color reparacion"></span>
-            <span className="calendario-legend-label">Reparación</span>
+            <span className="calendario-legend-label">Correctivo</span>
           </div>
           <div className="calendario-legend-item">
             <span className="calendario-legend-color instalacion"></span>
-            <span className="calendario-legend-label">Instalación</span>
+            <span className="calendario-legend-label">Preventivo</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+          <h4 className="text-sm font-semibold text-gray-600 mb-2">Órdenes Pendientes</h4>
+          <div className="text-2xl font-bold text-orange-600">
+            {(servicios || data.servicios || []).filter(s => s.estado === 'PENDIENTE').length}
+          </div>
+        </div>
+        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+          <h4 className="text-sm font-semibold text-gray-600 mb-2">En Proceso</h4>
+          <div className="text-2xl font-bold text-blue-600">
+            {(servicios || data.servicios || []).filter(s => s.estado === 'PROCESO').length}
+          </div>
+        </div>
+        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+          <h4 className="text-sm font-semibold text-gray-600 mb-2">Completados este mes</h4>
+          <div className="text-2xl font-bold text-green-600">
+            {(servicios || data.servicios || []).filter(s => {
+              if (s.estado !== 'COMPLETADO') return false;
+              const servicioDate = new Date(s.fechaProgramada);
+              const now = new Date();
+              return servicioDate.getMonth() === now.getMonth() && 
+                     servicioDate.getFullYear() === now.getFullYear();
+            }).length}
           </div>
         </div>
       </div>
@@ -193,32 +227,32 @@ const CalendarioServicios = ({ onBack, servicios }) => {
                             <div>
                               <div className="flex items-center gap-3 mb-2">
                                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                                  servicio.tipo === 'mantenimiento' ? 'bg-blue-100 text-blue-800' :
-                                  servicio.tipo === 'reparacion' ? 'bg-red-100 text-red-800' :
+                                  servicio.tipoServicio === 'programado' ? 'bg-blue-100 text-blue-800' :
+                                  servicio.tipoServicio === 'correctivo' ? 'bg-red-100 text-red-800' :
                                   'bg-green-100 text-green-800'
                                 }`}>
                                   <i className={`fas ${
-                                    servicio.tipo === 'mantenimiento' ? 'fa-tools' :
-                                    servicio.tipo === 'reparacion' ? 'fa-wrench' :
+                                    servicio.tipoServicio === 'programado' ? 'fa-tools' :
+                                    servicio.tipoServicio === 'correctivo' ? 'fa-wrench' :
                                     'fa-cog'
                                   }`}></i>
-                                  {servicio.tipo.charAt(0).toUpperCase() + servicio.tipo.slice(1)}
+                                  {(servicio.tipoServicio || 'Servicio').charAt(0).toUpperCase() + (servicio.tipoServicio || 'Servicio').slice(1)}
                                 </span>
                                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                                  servicio.estado === 'completado' ? 'bg-green-100 text-green-800' :
-                                  servicio.estado === 'proceso' ? 'bg-blue-100 text-blue-800' :
-                                  servicio.estado === 'cancelado' ? 'bg-red-100 text-red-800' :
+                                  servicio.estado === 'COMPLETADO' ? 'bg-green-100 text-green-800' :
+                                  servicio.estado === 'PROCESO' ? 'bg-blue-100 text-blue-800' :
+                                  servicio.estado === 'CANCELADO' ? 'bg-red-100 text-red-800' :
                                   'bg-amber-100 text-amber-800'
                                 }`}>
                                   <i className={`fas ${
-                                    servicio.estado === 'completado' ? 'fa-check-circle' :
-                                    servicio.estado === 'proceso' ? 'fa-spinner' :
-                                    servicio.estado === 'cancelado' ? 'fa-times-circle' :
+                                    servicio.estado === 'COMPLETADO' ? 'fa-check-circle' :
+                                    servicio.estado === 'PROCESO' ? 'fa-spinner' :
+                                    servicio.estado === 'CANCELADO' ? 'fa-times-circle' :
                                     'fa-clock'
                                   }`}></i>
-                                  {servicio.estado.charAt(0).toUpperCase() + servicio.estado.slice(1)}
+                                  {(servicio.estado || 'PENDIENTE').charAt(0).toUpperCase() + (servicio.estado || 'PENDIENTE').slice(1).toLowerCase()}
                                 </span>
-                                {servicio.prioridad === 'alta' && (
+                                {servicio.prioridad === 'ALTA' && (
                                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                                     <i className="fas fa-exclamation-circle"></i>
                                     Prioridad Alta
@@ -232,7 +266,7 @@ const CalendarioServicios = ({ onBack, servicios }) => {
                             <div className="text-right">
                               <div className="flex items-center gap-2 text-gray-600">
                                 <i className="fas fa-clock"></i>
-                                <span className="font-medium">{servicio.hora || '09:00'}</span>
+                                <span className="font-medium">{servicio.rangoHorario || servicio.horaInicio || servicio.hora || '09:00'}</span>
                               </div>
                             </div>
                           </div>

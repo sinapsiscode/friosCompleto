@@ -1,45 +1,64 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { DataContext } from '../../context/DataContext';
+import React, { useState, useEffect } from 'react';
 import { showAlert, showConfirm } from '../../utils/sweetAlert';
+import servicioService from '../../services/servicio.service';
+import repuestoFormularioService from '../../services/repuestoFormulario.service';
 
-const ServicioDetalleForm = ({ servicio, onClose }) => {
-  const { data, updateItem, addItem, deleteItem, getNextId } = useContext(DataContext);
+const ServicioDetalleForm = ({ servicio, onClose, onSuccess }) => {
+  // Estados del formulario
   const [formData, setFormData] = useState({
-    trabajosRealizados: '',
-    repuestosUtilizados: [],
-    recomendaciones: '',
-    proximoMantenimiento: '',
-    fotosAntes: [],
-    fotosDespues: [],
-    fotos: [],
-    // Configuración para mantenimiento programado
-    frecuenciaMantenimiento: 'mensual',
-    configurarProgramacion: false
+    observacionesFinales: '',
+    evaluacion: '',
+    repuestosUsados: [],
+    tiempoEmpleado: '',
+    fotos: []
   });
+
+  // Estados de carga y repuestos
+  const [loading, setLoading] = useState(false);
+  const [repuestosDisponibles, setRepuestosDisponibles] = useState([]);
+  const [loadingRepuestos, setLoadingRepuestos] = useState(true);
+  
+  // Estados de UI
   const [showAddMaterial, setShowAddMaterial] = useState(false);
   const [newMaterial, setNewMaterial] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showFullSearchModal, setShowFullSearchModal] = useState(false);
   const [modalSearchTerm, setModalSearchTerm] = useState('');
   const [modalFilter, setModalFilter] = useState('todos');
-  
-  // Obtener repuestos disponibles del sistema
-  const repuestosDisponibles = (data.repuestos || []).filter(r => r.disponible !== false);
-  
+
+  // Cargar repuestos disponibles al montar el componente
+  useEffect(() => {
+    const cargarRepuestos = async () => {
+      try {
+        setLoadingRepuestos(true);
+        const response = await repuestoFormularioService.getAll();
+        setRepuestosDisponibles(response.data || response || []);
+      } catch (error) {
+        console.error('Error al cargar repuestos:', error);
+        showAlert('Error al cargar la lista de repuestos', 'error');
+        setRepuestosDisponibles([]);
+      } finally {
+        setLoadingRepuestos(false);
+      }
+    };
+
+    cargarRepuestos();
+  }, []);
+
   // Filtrar repuestos según búsqueda
   const filteredRepuestos = repuestosDisponibles.filter(repuesto =>
     repuesto.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (repuesto.descripcion && repuesto.descripcion.toLowerCase().includes(searchTerm.toLowerCase()))
   );
-  
+
   // Filtrar repuestos para el modal
   const modalFilteredRepuestos = repuestosDisponibles.filter(repuesto => {
     const matchesSearch = repuesto.nombre.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
       (repuesto.descripcion && repuesto.descripcion.toLowerCase().includes(modalSearchTerm.toLowerCase()));
     
     if (modalFilter === 'todos') return matchesSearch;
-    if (modalFilter === 'seleccionados') return matchesSearch && formData.repuestosUtilizados.includes(repuesto.id);
-    if (modalFilter === 'no-seleccionados') return matchesSearch && !formData.repuestosUtilizados.includes(repuesto.id);
+    if (modalFilter === 'seleccionados') return matchesSearch && formData.repuestosUsados.includes(repuesto.id);
+    if (modalFilter === 'no-seleccionados') return matchesSearch && !formData.repuestosUsados.includes(repuesto.id);
     return matchesSearch && repuesto.categoria === modalFilter;
   });
 
@@ -50,293 +69,222 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
       [name]: value
     }));
   };
-  
+
   const handleMaterialToggle = (materialId) => {
     setFormData(prev => ({
       ...prev,
-      repuestosUtilizados: prev.repuestosUtilizados.includes(materialId)
-        ? prev.repuestosUtilizados.filter(id => id !== materialId)
-        : [...prev.repuestosUtilizados, materialId]
+      repuestosUsados: prev.repuestosUsados.includes(materialId)
+        ? prev.repuestosUsados.filter(id => id !== materialId)
+        : [...prev.repuestosUsados, materialId]
     }));
   };
-  
-  const handleAddNewMaterial = () => {
-    if (newMaterial.trim()) {
-      // Agregar el nuevo repuesto al sistema
-      const newRepuesto = {
-        id: Date.now(),
-        nombre: newMaterial,
+
+  const handleAddNewMaterial = async () => {
+    if (!newMaterial.trim()) return;
+
+    try {
+      setLoading(true);
+      const nuevoRepuesto = {
+        nombre: newMaterial.trim(),
         descripcion: '',
         categoria: 'repuesto',
-        disponible: true,
-        createdAt: new Date().toISOString()
+        disponible: true
       };
-      
-      addItem('repuestos', newRepuesto);
-      
-      // Seleccionarlo automáticamente
+
+      const response = await repuestoFormularioService.create(nuevoRepuesto);
+      const repuestoCreado = response.data || response;
+
+      // Actualizar lista local
+      setRepuestosDisponibles(prev => [...prev, repuestoCreado]);
+
+      // Seleccionar automáticamente el nuevo repuesto
       setFormData(prev => ({
         ...prev,
-        repuestosUtilizados: [...prev.repuestosUtilizados, newRepuesto.id]
+        repuestosUsados: [...prev.repuestosUsados, repuestoCreado.id]
       }));
-      
+
       setNewMaterial('');
       setShowAddMaterial(false);
+      showAlert('Repuesto agregado exitosamente', 'success');
+    } catch (error) {
+      console.error('Error al agregar repuesto:', error);
+      showAlert('Error al agregar el repuesto', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleFotoUpload = (e, tipo) => {
+  const handleFotoUpload = (e) => {
     const files = Array.from(e.target.files);
-    const reader = new FileReader();
     
     files.forEach(file => {
-      reader.onload = (event) => {
-        const base64 = event.target.result;
-        
-        if (tipo === 'antes') {
-          setFormData(prev => ({
-            ...prev,
-            fotosAntes: [...prev.fotosAntes, { nombre: file.name, data: base64 }]
-          }));
-        } else if (tipo === 'despues') {
-          setFormData(prev => ({
-            ...prev,
-            fotosDespues: [...prev.fotosDespues, { nombre: file.name, data: base64 }]
-          }));
-        } else {
-          setFormData(prev => ({
-            ...prev,
-            fotos: [...prev.fotos, { nombre: file.name, data: base64 }]
-          }));
-        }
-      };
-      reader.readAsDataURL(file);
+      // Validar tamaño del archivo (máximo 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showAlert(`El archivo ${file.name} es demasiado grande. Máximo 5MB.`, 'warning');
+        return;
+      }
+
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/')) {
+        showAlert(`El archivo ${file.name} no es una imagen válida.`, 'warning');
+        return;
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        fotos: [...prev.fotos, file]
+      }));
     });
   };
 
-  const handleRemoveFoto = (index, tipo) => {
-    if (tipo === 'antes') {
-      setFormData(prev => ({
-        ...prev,
-        fotosAntes: prev.fotosAntes.filter((_, i) => i !== index)
-      }));
-    } else if (tipo === 'despues') {
-      setFormData(prev => ({
-        ...prev,
-        fotosDespues: prev.fotosDespues.filter((_, i) => i !== index)
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        fotos: prev.fotos.filter((_, i) => i !== index)
-      }));
-    }
+  const handleRemoveFoto = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      fotos: prev.fotos.filter((_, i) => i !== index)
+    }));
   };
 
-  const calcularProximaFecha = (fechaActual, frecuencia, programacion = null) => {
-    const fecha = new Date(fechaActual);
-    
-    switch (frecuencia) {
-      case 'diario':
-        fecha.setDate(fecha.getDate() + 1);
-        break;
-      
-      case 'semanal':
-        if (programacion?.diasSemana && programacion.diasSemana.length > 0) {
-          // Buscar el próximo día de la semana especificado
-          let diasAdelante = 1;
-          let fechaTemp = new Date(fecha);
-          fechaTemp.setDate(fechaTemp.getDate() + 1);
-          
-          while (diasAdelante <= 7) {
-            const diaSemana = fechaTemp.getDay(); // 0 = Domingo, 1 = Lunes, etc.
-            if (programacion.diasSemana.includes(diaSemana === 0 ? 7 : diaSemana)) {
-              fecha.setDate(fecha.getDate() + diasAdelante);
-              break;
-            }
-            fechaTemp.setDate(fechaTemp.getDate() + 1);
-            diasAdelante++;
-          }
-          
-          // Si no encontró ningún día en la semana actual, ir a la próxima semana
-          if (diasAdelante > 7) {
-            fecha.setDate(fecha.getDate() + 7);
-          }
-        } else {
-          // Por defecto, agregar 7 días
-          fecha.setDate(fecha.getDate() + 7);
-        }
-        break;
-      
-      case 'quincenal':
-        fecha.setDate(fecha.getDate() + 14);
-        break;
-      
-      case 'mensual':
-        if (programacion?.diaMes) {
-          // Establecer el día específico del próximo mes
-          fecha.setMonth(fecha.getMonth() + 1);
-          fecha.setDate(parseInt(programacion.diaMes));
-          
-          // Si el día no existe en el mes (ej: 31 de febrero), ajustar al último día del mes
-          if (fecha.getDate() !== parseInt(programacion.diaMes)) {
-            fecha.setDate(0); // Último día del mes anterior
-          }
-        } else {
-          // Por defecto, agregar un mes
-          fecha.setMonth(fecha.getMonth() + 1);
-        }
-        break;
-      
-      case 'bimestral':
-        fecha.setMonth(fecha.getMonth() + 2);
-        break;
-      
-      case 'trimestral':
-        fecha.setMonth(fecha.getMonth() + 3);
-        break;
-      
-      case 'semestral':
-        fecha.setMonth(fecha.getMonth() + 6);
-        break;
-      
-      case 'anual':
-        fecha.setFullYear(fecha.getFullYear() + 1);
-        break;
+  const handleDeleteRepuesto = async (repuestoId) => {
+    try {
+      const repuesto = repuestosDisponibles.find(r => r.id === repuestoId);
+      const result = await showConfirm(
+        '¿Confirmar eliminación?',
+        `¿Eliminar "${repuesto?.nombre}" de la lista de repuestos?`,
+        'Sí, eliminar',
+        'Cancelar'
+      );
+
+      if (result.isConfirmed) {
+        await repuestoFormularioService.delete(repuestoId);
         
-      case 'personalizado':
-        // Para fechas personalizadas, buscar la próxima fecha en la lista
-        if (programacion?.fechasEspecificas && programacion.fechasEspecificas.length > 0) {
-          const fechaActualStr = new Date(fechaActual).toISOString().split('T')[0];
-          const proximasFechas = programacion.fechasEspecificas
-            .filter(f => f > fechaActualStr)
-            .sort();
-          
-          if (proximasFechas.length > 0) {
-            return proximasFechas[0];
-          }
-        }
-        return null;
-      
-      default:
-        return null;
+        // Actualizar lista local
+        setRepuestosDisponibles(prev => prev.filter(r => r.id !== repuestoId));
+        
+        // Remover de seleccionados si estaba seleccionado
+        setFormData(prev => ({
+          ...prev,
+          repuestosUsados: prev.repuestosUsados.filter(id => id !== repuestoId)
+        }));
+
+        showAlert('Repuesto eliminado exitosamente', 'success');
+      }
+    } catch (error) {
+      console.error('Error al eliminar repuesto:', error);
+      showAlert('Error al eliminar el repuesto', 'error');
     }
-    
-    return fecha.toISOString().split('T')[0];
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.trabajosRealizados) {
-      showAlert('Por favor describa los trabajos realizados', 'warning');
+    if (!formData.observacionesFinales.trim()) {
+      showAlert('Por favor ingrese las observaciones finales del servicio', 'warning');
       return;
     }
 
-    // Actualizar el servicio como completado
-    updateItem('servicios', servicio.id, {
-      estado: 'completado',
-      fechaCompletado: new Date().toISOString(),
-      fechaFinalizacion: new Date().toISOString(),
-      horaFin: new Date().toISOString(),
-      detalleServicio: {
-        trabajosRealizados: formData.trabajosRealizados,
-        repuestosUtilizados: formData.repuestosUtilizados,
-        recomendaciones: formData.recomendaciones,
-        proximoMantenimiento: formData.proximoMantenimiento
-      },
-      fotosAntes: formData.fotosAntes,
-      fotosDespues: formData.fotosDespues,
-      fotos: formData.fotos
-    });
+    try {
+      setLoading(true);
 
-    // Si es un servicio programado, crear el siguiente
-    if (servicio.tipo === 'programado') {
-      let programacion = data.programaciones?.find(
-        p => p.clienteId === servicio.clienteId && 
-             p.equipos?.some(e => servicio.equipos?.includes(e))
-      );
-      
-      // Si el técnico configuró una nueva frecuencia, actualizar la programación
-      if (formData.configurarProgramacion && programacion) {
-        const nuevaProgramacion = {
-          ...programacion,
-          frecuencia: formData.frecuenciaMantenimiento,
-          tipo: formData.frecuenciaMantenimiento
-        };
-        updateItem('programaciones', programacion.id, nuevaProgramacion);
-        programacion = nuevaProgramacion;
-      }
-      
-      if (programacion && programacion.estado === 'activa') {
-        const frecuenciaAUsar = formData.configurarProgramacion ? formData.frecuenciaMantenimiento : (programacion.frecuencia || programacion.tipo);
-        const proximaFecha = calcularProximaFecha(servicio.fecha, frecuenciaAUsar, programacion);
-        
-        if (proximaFecha) {
-          // Verificar que la próxima fecha no exceda la fecha fin de la programación
-          const fechaFin = new Date(programacion.fechaFin);
-          const fechaProxima = new Date(proximaFecha);
-          
-          if (fechaProxima <= fechaFin) {
-            // Crear el nuevo servicio
-            const nuevoServicio = {
-              id: getNextId('servicios'),
-              clienteId: servicio.clienteId,
-              tecnicoId: servicio.tecnicoId,
-              fecha: proximaFecha,
-              hora: servicio.hora || '09:00',
-              tipo: 'programado',
-              estado: 'pendiente',
-              descripcion: servicio.descripcion,
-              equipos: servicio.equipos,
-              prioridad: servicio.prioridad || 'media',
-              observaciones: `Mantenimiento programado - ${programacion.frecuencia || programacion.tipo}`,
-              fotos: []
-            };
-            
-            addItem('servicios', nuevoServicio);
-            
-            // Informar al usuario
-            showAlert(`Servicio completado exitosamente. Se ha programado el próximo mantenimiento para el ${new Date(proximaFecha).toLocaleDateString('es-ES')}`, 'success');
-          } else {
-            showAlert('Servicio completado exitosamente. Este fue el último servicio de la programación.', 'success');
-          }
-        } else {
-          showAlert('Servicio completado exitosamente', 'success');
-        }
-      } else {
-        showAlert('Servicio completado exitosamente', 'success');
-      }
-    } else {
+      // Preparar datos para el backend
+      const datosCompletado = {
+        observacionesFinales: formData.observacionesFinales,
+        evaluacion: formData.evaluacion || null,
+        repuestosUsados: formData.repuestosUsados,
+        tiempoEmpleado: formData.tiempoEmpleado || null,
+        fotos: formData.fotos
+      };
+
+      console.log('Completando servicio:', datosCompletado);
+
+      await servicioService.completar(servicio.id, datosCompletado);
+
       showAlert('Servicio completado exitosamente', 'success');
+      
+      // Llamar callback de éxito si existe
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Error al completar servicio:', error);
+      showAlert(
+        error.response?.data?.message || 'Error al completar el servicio', 
+        'error'
+      );
+    } finally {
+      setLoading(false);
     }
-    
-    onClose();
   };
 
   if (!servicio) return null;
 
   return (
     <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-      {/* Header minimalista */}
+      {/* Header */}
       <div className="mb-8">
-        <p className="text-sm text-gray-400 font-medium">SERVICIO · {new Date(servicio.fecha).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()}</p>
+        <p className="text-sm text-gray-400 font-medium">
+          SERVICIO · {new Date(servicio.fecha || servicio.fechaProgramada).toLocaleDateString('es', { 
+            day: 'numeric', 
+            month: 'short', 
+            year: 'numeric' 
+          }).toUpperCase()}
+        </p>
       </div>
 
-      {/* Trabajos Realizados */}
+      {/* Observaciones Finales */}
       <div className="mb-8">
         <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
           <i className="fas fa-clipboard-check text-gray-400"></i>
-          Trabajos Realizados
+          Observaciones Finales *
         </h3>
         <textarea
-          name="trabajosRealizados"
-          value={formData.trabajosRealizados}
+          name="observacionesFinales"
+          value={formData.observacionesFinales}
           onChange={handleChange}
           rows="4"
           className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-          placeholder="Describa los trabajos realizados durante el servicio..."
+          placeholder="Describa los trabajos realizados, estado final del equipo, y cualquier observación importante..."
           required
+          disabled={loading}
+        />
+      </div>
+
+      {/* Evaluación del Servicio */}
+      <div className="mb-8">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <i className="fas fa-star text-gray-400"></i>
+          Evaluación del Servicio
+        </h3>
+        <select
+          name="evaluacion"
+          value={formData.evaluacion}
+          onChange={handleChange}
+          className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          disabled={loading}
+        >
+          <option value="">Seleccionar evaluación (opcional)</option>
+          <option value="EXCELENTE">Excelente</option>
+          <option value="BUENO">Bueno</option>
+          <option value="REGULAR">Regular</option>
+          <option value="MALO">Malo</option>
+        </select>
+      </div>
+
+      {/* Tiempo Empleado */}
+      <div className="mb-8">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <i className="fas fa-clock text-gray-400"></i>
+          Tiempo Empleado
+        </h3>
+        <input
+          type="text"
+          name="tiempoEmpleado"
+          value={formData.tiempoEmpleado}
+          onChange={handleChange}
+          className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          placeholder="Ej: 2 horas, 3.5 horas, 1 día..."
+          disabled={loading}
         />
       </div>
 
@@ -351,12 +299,13 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
             type="button"
             onClick={() => setShowAddMaterial(!showAddMaterial)}
             className="px-3 py-1.5 text-sm text-green-600 hover:text-green-700 flex items-center gap-1"
+            disabled={loading}
           >
             <i className="fas fa-plus"></i>
             Agregar nuevo
           </button>
         </div>
-        
+
         {/* Buscador */}
         <div className="mb-4">
           <div className="relative">
@@ -367,6 +316,7 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              disabled={loading || loadingRepuestos}
             />
             {searchTerm && (
               <button
@@ -379,24 +329,30 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
             )}
           </div>
         </div>
-        
+
         {/* Lista de repuestos */}
-        {filteredRepuestos.length > 0 ? (
+        {loadingRepuestos ? (
+          <div className="text-center py-8 bg-gray-50 rounded-lg">
+            <i className="fas fa-spinner fa-spin text-2xl text-gray-400 mb-2"></i>
+            <p className="text-gray-500">Cargando repuestos...</p>
+          </div>
+        ) : filteredRepuestos.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {filteredRepuestos.slice(0, 7).map(repuesto => (
               <label
                 key={repuesto.id}
                 className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
-                  formData.repuestosUtilizados.includes(repuesto.id)
+                  formData.repuestosUsados.includes(repuesto.id)
                     ? 'border-green-500 bg-green-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
                 <input
                   type="checkbox"
-                  checked={formData.repuestosUtilizados.includes(repuesto.id)}
+                  checked={formData.repuestosUsados.includes(repuesto.id)}
                   onChange={() => handleMaterialToggle(repuesto.id)}
                   className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                  disabled={loading}
                 />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900">{repuesto.nombre}</p>
@@ -406,27 +362,20 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
                 </div>
                 <button
                   type="button"
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    const result = await showConfirm(
-                      '¿Confirmar eliminación?',
-                      `¿Eliminar "${repuesto.nombre}" de la lista de repuestos?`,
-                      'Sí, eliminar',
-                      'Cancelar'
-                    );
-                    if (result.isConfirmed) {
-                      deleteItem('repuestos', repuesto.id);
-                    }
+                    handleDeleteRepuesto(repuesto.id);
                   }}
                   className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                   title="Eliminar repuesto"
+                  disabled={loading}
                 >
                   <i className="fas fa-times"></i>
                 </button>
               </label>
             ))}
-            
+
             {/* Card de búsqueda específica */}
             <div
               onClick={() => setShowFullSearchModal(true)}
@@ -457,13 +406,15 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
                 onChange={(e) => setNewMaterial(e.target.value)}
                 placeholder="Nombre del material nuevo..."
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                disabled={loading}
               />
               <button
                 type="button"
                 onClick={handleAddNewMaterial}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                disabled={loading || !newMaterial.trim()}
               >
-                Agregar
+                {loading ? <i className="fas fa-spinner fa-spin"></i> : 'Agregar'}
               </button>
               <button
                 type="button"
@@ -472,6 +423,7 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
                   setNewMaterial('');
                 }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                disabled={loading}
               >
                 Cancelar
               </button>
@@ -486,276 +438,93 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
           <i className="fas fa-camera text-gray-400"></i>
           Evidencia Fotográfica
         </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Fotos Antes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Fotos ANTES del servicio
-            </label>
-            
-            {formData.fotosAntes.length === 0 ? (
-              <div
-                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer h-48 flex flex-col items-center justify-center"
-                onClick={() => document.getElementById('fotosAntes').click()}
-              >
-                <input
-                  type="file"
-                  id="fotosAntes"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => handleFotoUpload(e, 'antes')}
-                  className="hidden"
+
+        {formData.fotos.length === 0 ? (
+          <div
+            className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer h-48 flex flex-col items-center justify-center"
+            onClick={() => document.getElementById('fotos').click()}
+          >
+            <input
+              type="file"
+              id="fotos"
+              accept="image/*"
+              multiple
+              onChange={handleFotoUpload}
+              className="hidden"
+              disabled={loading}
+            />
+            <i className="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+            <p className="text-sm text-gray-600">Click para subir fotos</p>
+            <p className="text-xs text-gray-500 mt-1">Máximo 5MB por archivo</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Primera foto grande */}
+            {formData.fotos[0] && (
+              <div className="relative group">
+                <img
+                  src={URL.createObjectURL(formData.fotos[0])}
+                  alt="Evidencia principal"
+                  className="w-full h-48 object-cover rounded-lg"
                 />
-                <i className="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
-                <p className="text-sm text-gray-600">Click para subir fotos</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {/* Primera foto grande */}
-                {formData.fotosAntes[0] && (
-                  <div className="relative group">
-                    <img
-                      src={formData.fotosAntes[0].data}
-                      alt="Antes principal"
-                      className="w-full h-48 object-cover rounded-lg cursor-pointer"
-                      onClick={() => window.open(formData.fotosAntes[0].data, '_blank')}
-                    />
-                    <button
-                      type="button"
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                      onClick={() => handleRemoveFoto(0, 'antes')}
-                    >
-                      <i className="fas fa-times"></i>
-                    </button>
-                    <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded text-xs">
-                      Foto principal
-                    </div>
-                  </div>
-                )}
-                
-                {/* Fotos adicionales en grid */}
-                {formData.fotosAntes.length > 1 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {formData.fotosAntes.slice(1).map((foto, index) => (
-                      <div key={index + 1} className="relative group">
-                        <img
-                          src={foto.data}
-                          alt={`Antes ${index + 2}`}
-                          className="w-full h-20 object-cover rounded-lg cursor-pointer"
-                          onClick={() => window.open(foto.data, '_blank')}
-                        />
-                        <button
-                          type="button"
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                          onClick={() => handleRemoveFoto(index + 1, 'antes')}
-                        >
-                          <i className="fas fa-times"></i>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {/* Botón para agregar más fotos */}
                 <button
                   type="button"
-                  onClick={() => document.getElementById('fotosAntesAdd').click()}
-                  className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-700 transition-colors text-sm"
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                  onClick={() => handleRemoveFoto(0)}
+                  disabled={loading}
                 >
-                  <i className="fas fa-plus mr-2"></i>
-                  Agregar más fotos
+                  <i className="fas fa-times"></i>
                 </button>
-                <input
-                  type="file"
-                  id="fotosAntesAdd"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => handleFotoUpload(e, 'antes')}
-                  className="hidden"
-                />
-              </div>
-            )}
-          </div>
-          
-          {/* Fotos Después */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Fotos DESPUÉS del servicio
-            </label>
-            
-            {formData.fotosDespues.length === 0 ? (
-              <div
-                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer h-48 flex flex-col items-center justify-center"
-                onClick={() => document.getElementById('fotosDespues').click()}
-              >
-                <input
-                  type="file"
-                  id="fotosDespues"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => handleFotoUpload(e, 'despues')}
-                  className="hidden"
-                />
-                <i className="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
-                <p className="text-sm text-gray-600">Click para subir fotos</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {/* Primera foto grande */}
-                {formData.fotosDespues[0] && (
-                  <div className="relative group">
-                    <img
-                      src={formData.fotosDespues[0].data}
-                      alt="Después principal"
-                      className="w-full h-48 object-cover rounded-lg cursor-pointer"
-                      onClick={() => window.open(formData.fotosDespues[0].data, '_blank')}
-                    />
-                    <button
-                      type="button"
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                      onClick={() => handleRemoveFoto(0, 'despues')}
-                    >
-                      <i className="fas fa-times"></i>
-                    </button>
-                    <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded text-xs">
-                      Foto principal
-                    </div>
-                  </div>
-                )}
-                
-                {/* Fotos adicionales en grid */}
-                {formData.fotosDespues.length > 1 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {formData.fotosDespues.slice(1).map((foto, index) => (
-                      <div key={index + 1} className="relative group">
-                        <img
-                          src={foto.data}
-                          alt={`Después ${index + 2}`}
-                          className="w-full h-20 object-cover rounded-lg cursor-pointer"
-                          onClick={() => window.open(foto.data, '_blank')}
-                        />
-                        <button
-                          type="button"
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                          onClick={() => handleRemoveFoto(index + 1, 'despues')}
-                        >
-                          <i className="fas fa-times"></i>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {/* Botón para agregar más fotos */}
-                <button
-                  type="button"
-                  onClick={() => document.getElementById('fotosDespuesAdd').click()}
-                  className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-700 transition-colors text-sm"
-                >
-                  <i className="fas fa-plus mr-2"></i>
-                  Agregar más fotos
-                </button>
-                <input
-                  type="file"
-                  id="fotosDespuesAdd"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => handleFotoUpload(e, 'despues')}
-                  className="hidden"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Recomendaciones */}
-      <div className="mb-8">
-        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-          <i className="fas fa-lightbulb text-gray-400"></i>
-          Recomendaciones
-        </h3>
-        <textarea
-          name="recomendaciones"
-          value={formData.recomendaciones}
-          onChange={handleChange}
-          rows="3"
-          className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-          placeholder="Recomendaciones para el cliente (opcional)..."
-        />
-      </div>
-
-      {/* Próximo Mantenimiento */}
-      <div className="mb-8">
-        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-          <i className="fas fa-calendar-alt text-gray-400"></i>
-          Próximo Mantenimiento
-        </h3>
-        
-        {/* Mostrar configuración especial si es servicio programado */}
-        {servicio.tipo === 'programado' && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-3">
-              <i className="fas fa-sync-alt text-blue-600"></i>
-              <h4 className="font-medium text-blue-900">Configuración de Mantenimiento Programado</h4>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="flex items-center gap-2 mb-3">
-                  <input
-                    type="checkbox"
-                    checked={formData.configurarProgramacion}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      configurarProgramacion: e.target.checked
-                    }))}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">
-                    Configurar frecuencia para próximos mantenimientos
-                  </span>
-                </label>
-              </div>
-              
-              {formData.configurarProgramacion && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Frecuencia del mantenimiento programado
-                  </label>
-                  <select
-                    value={formData.frecuenciaMantenimiento}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      frecuenciaMantenimiento: e.target.value
-                    }))}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="semanal">Semanal</option>
-                    <option value="quincenal">Quincenal</option>
-                    <option value="mensual">Mensual</option>
-                    <option value="bimestral">Bimestral</option>
-                    <option value="trimestral">Trimestral</option>
-                    <option value="semestral">Semestral</option>
-                    <option value="anual">Anual</option>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Esta configuración se aplicará para generar automáticamente los próximos mantenimientos
-                  </p>
+                <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded text-xs">
+                  Foto principal
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Fotos adicionales en grid */}
+            {formData.fotos.length > 1 && (
+              <div className="grid grid-cols-3 gap-2">
+                {formData.fotos.slice(1).map((foto, index) => (
+                  <div key={index + 1} className="relative group">
+                    <img
+                      src={URL.createObjectURL(foto)}
+                      alt={`Evidencia ${index + 2}`}
+                      className="w-full h-20 object-cover rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                      onClick={() => handleRemoveFoto(index + 1)}
+                      disabled={loading}
+                    >
+                      <i className="fas fa-times"></i>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Botón para agregar más fotos */}
+            <button
+              type="button"
+              onClick={() => document.getElementById('fotosAdd').click()}
+              className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-700 transition-colors text-sm"
+              disabled={loading}
+            >
+              <i className="fas fa-plus mr-2"></i>
+              Agregar más fotos
+            </button>
+            <input
+              type="file"
+              id="fotosAdd"
+              accept="image/*"
+              multiple
+              onChange={handleFotoUpload}
+              className="hidden"
+              disabled={loading}
+            />
           </div>
         )}
-        
-        <input
-          type="date"
-          name="proximoMantenimiento"
-          value={formData.proximoMantenimiento}
-          onChange={handleChange}
-          className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-        />
       </div>
 
       {/* Botones de acción */}
@@ -764,18 +533,29 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
           type="button"
           onClick={onClose}
           className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          disabled={loading}
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+          className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+          disabled={loading}
         >
-          <i className="fas fa-check"></i>
-          Completar Servicio
+          {loading ? (
+            <>
+              <i className="fas fa-spinner fa-spin"></i>
+              Completando...
+            </>
+          ) : (
+            <>
+              <i className="fas fa-check"></i>
+              Completar Servicio
+            </>
+          )}
         </button>
       </div>
-      
+
       {/* Modal de búsqueda completa */}
       {showFullSearchModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -795,11 +575,12 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
                     setModalFilter('todos');
                   }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={loading}
                 >
                   <i className="fas fa-times text-gray-500 text-xl"></i>
                 </button>
               </div>
-              
+
               {/* Controles de búsqueda y filtro */}
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
@@ -810,12 +591,14 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
                     value={modalSearchTerm}
                     onChange={(e) => setModalSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    disabled={loading}
                   />
                 </div>
                 <select
                   value={modalFilter}
                   onChange={(e) => setModalFilter(e.target.value)}
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  disabled={loading}
                 >
                   <option value="todos">Todos</option>
                   <option value="seleccionados">Seleccionados</option>
@@ -824,20 +607,20 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
                   <option value="material">Solo materiales</option>
                 </select>
               </div>
-              
+
               {/* Contador de resultados */}
               <div className="mt-4 flex items-center justify-between">
                 <p className="text-sm text-gray-600">
                   {modalFilteredRepuestos.length} resultados encontrados
                 </p>
-                {formData.repuestosUtilizados.length > 0 && (
+                {formData.repuestosUsados.length > 0 && (
                   <p className="text-sm font-medium text-green-600">
-                    {formData.repuestosUtilizados.length} seleccionados
+                    {formData.repuestosUsados.length} seleccionados
                   </p>
                 )}
               </div>
             </div>
-            
+
             {/* Lista de repuestos */}
             <div className="flex-1 overflow-y-auto p-6">
               {modalFilteredRepuestos.length > 0 ? (
@@ -846,16 +629,17 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
                     <label
                       key={repuesto.id}
                       className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-all ${
-                        formData.repuestosUtilizados.includes(repuesto.id)
+                        formData.repuestosUsados.includes(repuesto.id)
                           ? 'border-green-500 bg-green-50 shadow-sm'
                           : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                       }`}
                     >
                       <input
                         type="checkbox"
-                        checked={formData.repuestosUtilizados.includes(repuesto.id)}
+                        checked={formData.repuestosUsados.includes(repuesto.id)}
                         onChange={() => handleMaterialToggle(repuesto.id)}
                         className="w-5 h-5 text-green-600 rounded focus:ring-green-500"
+                        disabled={loading}
                       />
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">{repuesto.nombre}</p>
@@ -867,29 +651,24 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
                             <i className="fas fa-tag"></i>
                             {repuesto.categoria}
                           </span>
-                          <span className="inline-flex items-center gap-1">
-                            <i className="fas fa-calendar"></i>
-                            {new Date(repuesto.createdAt).toLocaleDateString('es')}
-                          </span>
+                          {repuesto.createdAt && (
+                            <span className="inline-flex items-center gap-1">
+                              <i className="fas fa-calendar"></i>
+                              {new Date(repuesto.createdAt).toLocaleDateString('es')}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <button
                         type="button"
-                        onClick={async (e) => {
+                        onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          const result = await showConfirm(
-                            '¿Confirmar eliminación?',
-                            `¿Eliminar "${repuesto.nombre}" de la lista de repuestos?`,
-                            'Sí, eliminar',
-                            'Cancelar'
-                          );
-                          if (result.isConfirmed) {
-                            deleteItem('repuestos', repuesto.id);
-                          }
+                          handleDeleteRepuesto(repuesto.id);
                         }}
                         className="p-2 text-gray-400 hover:text-red-600 transition-colors"
                         title="Eliminar repuesto"
+                        disabled={loading}
                       >
                         <i className="fas fa-trash"></i>
                       </button>
@@ -904,7 +683,7 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
                 </div>
               )}
             </div>
-            
+
             {/* Footer del modal */}
             <div className="p-6 border-t border-gray-200 bg-gray-50">
               <div className="flex justify-between items-center">
@@ -912,6 +691,7 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
                   type="button"
                   onClick={() => setShowAddMaterial(true)}
                   className="px-4 py-2 text-green-600 hover:text-green-700 flex items-center gap-2"
+                  disabled={loading}
                 >
                   <i className="fas fa-plus"></i>
                   Agregar nuevo repuesto
@@ -924,6 +704,7 @@ const ServicioDetalleForm = ({ servicio, onClose }) => {
                     setModalFilter('todos');
                   }}
                   className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  disabled={loading}
                 >
                   Listo
                 </button>

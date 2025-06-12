@@ -3,6 +3,7 @@ import { DataContext } from '../../context/DataContext';
 import { useNavigate } from 'react-router-dom';
 import ServicioModal from '../../components/Forms/ServicioModal';
 import OrdenesChart from '../../components/Common/OrdenesChart';
+import CalendarioServicios from '../../components/Common/CalendarioServicios';
 import servicioService from '../../services/servicio.service';
 import clienteService from '../../services/cliente.service';
 import tecnicoService from '../../services/tecnico.service';
@@ -15,6 +16,7 @@ const AdminDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showCalendario, setShowCalendario] = useState(false);
   const [estadisticas, setEstadisticas] = useState({
     servicios: [],
     clientes: [],
@@ -122,6 +124,16 @@ const AdminDashboard = () => {
     );
   }
 
+  // Si se muestra el calendario, renderizar solo el calendario
+  if (showCalendario) {
+    return (
+      <CalendarioServicios 
+        servicios={servicios}
+        onBack={() => setShowCalendario(false)}
+      />
+    );
+  }
+
   return (
     <div className="w-full min-h-screen overflow-y-auto pt-4 lg:pt-8 px-4 lg:px-8 pb-4 bg-gray-50 animate-fadeIn">
       <div style={{background: 'linear-gradient(135deg, rgba(0, 119, 204, 0.8), rgba(0, 102, 176, 0.9))'}} className="text-white px-4 lg:px-xl py-6 lg:py-xxl rounded-lg lg:rounded-xxl mb-6 lg:mb-xl flex flex-col lg:flex-row justify-between items-start lg:items-center shadow-lg relative overflow-hidden">
@@ -130,13 +142,20 @@ const AdminDashboard = () => {
           <h1 className="text-2xl lg:text-4xl font-bold m-0 mb-2 lg:mb-xs -tracking-wide text-shadow-md">Panel de Control Administrativo</h1>
           <p className="text-sm lg:text-lg opacity-95 m-0 font-normal text-shadow-sm">Gestión integral de órdenes de servicio de refrigeración</p>
         </div>
-        <div className="header-actions relative z-10 w-full lg:w-auto">
+        <div className="header-actions relative z-10 w-full lg:w-auto flex gap-3">
           <button 
-            className="bg-white/20 border border-white/30 text-white px-4 lg:px-lg py-2 lg:py-sm rounded-md font-medium text-sm cursor-pointer transition-all duration-300 flex items-center justify-center lg:justify-start gap-2 lg:gap-sm hover:bg-white/30 hover:-translate-y-0.5 hover:shadow-md w-full lg:w-auto"
+            className="bg-white/20 border border-white/30 text-white px-4 lg:px-lg py-2 lg:py-sm rounded-md font-medium text-sm cursor-pointer transition-all duration-300 flex items-center justify-center lg:justify-start gap-2 lg:gap-sm hover:bg-white/30 hover:-translate-y-0.5 hover:shadow-md flex-1 lg:flex-none"
             onClick={handleNuevoServicio}
           >
             <i className="fas fa-plus"></i> 
-            <span className="lg:inline">Nueva Orden de Trabajo</span>
+            <span className="lg:inline">Nueva Orden</span>
+          </button>
+          <button 
+            className="bg-white/20 border border-white/30 text-white px-4 lg:px-lg py-2 lg:py-sm rounded-md font-medium text-sm cursor-pointer transition-all duration-300 flex items-center justify-center lg:justify-start gap-2 lg:gap-sm hover:bg-white/30 hover:-translate-y-0.5 hover:shadow-md flex-1 lg:flex-none"
+            onClick={() => setShowCalendario(true)}
+          >
+            <i className="fas fa-calendar-alt"></i> 
+            <span className="lg:inline">Calendario</span>
           </button>
         </div>
       </div>

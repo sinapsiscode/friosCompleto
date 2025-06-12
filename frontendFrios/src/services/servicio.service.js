@@ -204,16 +204,120 @@ const servicioService = {
     }
   },
 
-  // Completar servicio
+  // Completar servicio con formato original completo
   completar: async (servicioId, datosCompletado = {}) => {
     console.log('📋 === SERVICIO SERVICE COMPLETAR ===');
     console.log('🆔 Servicio ID:', servicioId);
     console.log('📝 Datos completado:', datosCompletado);
     
     try {
-      const response = await api.post(`/api/servicios/${servicioId}/completar`, datosCompletado);
-      console.log('✅ Servicio completado exitosamente:', response.data);
-      return response.data;
+      // Función helper para convertir base64 a File
+      const base64ToFile = (base64Data, fileName) => {
+        const base64String = base64Data.split(',')[1];
+        const byteCharacters = atob(base64String);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        return new File([byteArray], fileName, { type: 'image/jpeg' });
+      };
+
+      // Verificar si hay fotos para determinar el tipo de envío
+      const hayFotos = (datosCompletado.fotosAntes && datosCompletado.fotosAntes.length > 0) ||
+                      (datosCompletado.fotosDespues && datosCompletado.fotosDespues.length > 0) ||
+                      (datosCompletado.fotos && datosCompletado.fotos.length > 0);
+
+      if (hayFotos) {
+        // Usar FormData para subir archivos
+        const formData = new FormData();
+        
+        // Agregar datos básicos del servicio
+        formData.append('observacionesFinales', datosCompletado.trabajosRealizados || datosCompletado.observacionesFinales || '');
+        formData.append('evaluacion', datosCompletado.evaluacion || '');
+        formData.append('tiempoEmpleado', datosCompletado.tiempoEmpleado || '');
+        
+        // Agregar repuestos usados como JSON
+        if (datosCompletado.repuestosUtilizados && datosCompletado.repuestosUtilizados.length > 0) {
+          formData.append('repuestosUsados', JSON.stringify(datosCompletado.repuestosUtilizados));
+        }
+
+        // Agregar datos adicionales del formulario original
+        const detallesCompletos = {
+          trabajosRealizados: datosCompletado.trabajosRealizados,
+          recomendaciones: datosCompletado.recomendaciones,
+          proximoMantenimiento: datosCompletado.proximoMantenimiento,
+          frecuenciaMantenimiento: datosCompletado.frecuenciaMantenimiento,
+          configurarProgramacion: datosCompletado.configurarProgramacion
+        };
+        formData.append('detallesCompletos', JSON.stringify(detallesCompletos));
+        
+        // Agregar fotos ANTES
+        if (datosCompletado.fotosAntes) {
+          datosCompletado.fotosAntes.forEach((foto, index) => {
+            if (foto instanceof File) {
+              formData.append('fotosAntes', foto);
+            } else if (foto.data && foto.nombre) {
+              const file = base64ToFile(foto.data, `antes_${index}_${foto.nombre}`);
+              formData.append('fotosAntes', file);
+            }
+          });
+        }
+        
+        // Agregar fotos DESPUÉS
+        if (datosCompletado.fotosDespues) {
+          datosCompletado.fotosDespues.forEach((foto, index) => {
+            if (foto instanceof File) {
+              formData.append('fotosDespues', foto);
+            } else if (foto.data && foto.nombre) {
+              const file = base64ToFile(foto.data, `despues_${index}_${foto.nombre}`);
+              formData.append('fotosDespues', file);
+            }
+          });
+        }
+        
+        // Agregar fotos generales
+        if (datosCompletado.fotos) {
+          datosCompletado.fotos.forEach((foto, index) => {
+            if (foto instanceof File) {
+              formData.append('fotos', foto);
+            } else if (foto.data && foto.nombre) {
+              const file = base64ToFile(foto.data, `general_${index}_${foto.nombre}`);
+              formData.append('fotos', file);
+            }
+          });
+        }
+        
+        console.log('📁 Enviando con FormData (incluye archivos)');
+        const response = await api.post(`/api/servicios/${servicioId}/completar`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        console.log('✅ Servicio completado exitosamente:', response.data);
+        return response.data;
+      } else {
+        // Sin archivos, enviar JSON normal con todos los datos
+        const payload = {
+          observacionesFinales: datosCompletado.trabajosRealizados || datosCompletado.observacionesFinales || '',
+          evaluacion: datosCompletado.evaluacion || '',
+          repuestosUsados: datosCompletado.repuestosUtilizados || [],
+          tiempoEmpleado: datosCompletado.tiempoEmpleado || '',
+          // Datos adicionales del formulario original
+          detallesCompletos: {
+            trabajosRealizados: datosCompletado.trabajosRealizados,
+            recomendaciones: datosCompletado.recomendaciones,
+            proximoMantenimiento: datosCompletado.proximoMantenimiento,
+            frecuenciaMantenimiento: datosCompletado.frecuenciaMantenimiento,
+            configurarProgramacion: datosCompletado.configurarProgramacion
+          }
+        };
+        
+        console.log('📄 Enviando JSON (sin archivos)');
+        const response = await api.post(`/api/servicios/${servicioId}/completar`, payload);
+        console.log('✅ Servicio completado exitosamente:', response.data);
+        return response.data;
+      }
     } catch (error) {
       console.error('❌ Error al completar servicio:', error);
       throw error;
