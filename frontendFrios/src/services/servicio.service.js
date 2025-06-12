@@ -53,6 +53,33 @@ const servicioService = {
     console.log('📝 Datos recibidos:', servicioData);
     
     try {
+      // Función para extraer hora de inicio del rango
+      const extractStartTime = (timeRange) => {
+        if (!timeRange) return null;
+        if (timeRange.includes('-')) {
+          return timeRange.split('-')[0].trim(); // "10:00-14:00" → "10:00"
+        }
+        return timeRange; // Si ya es hora específica
+      };
+
+      // Función para extraer hora de fin del rango
+      const extractEndTime = (timeRange) => {
+        if (!timeRange) return null;
+        if (timeRange.includes('-')) {
+          return timeRange.split('-')[1].trim(); // "10:00-14:00" → "14:00"
+        }
+        return timeRange; // Si es hora específica, usar la misma como fin
+      };
+
+      // Extraer horas del rango
+      const horaInicio = extractStartTime(servicioData.hora);
+      const horaFin = extractEndTime(servicioData.hora);
+      
+      console.log('🕐 Procesando horarios:');
+      console.log('  - Rango original:', servicioData.hora);
+      console.log('  - Hora inicio:', horaInicio);
+      console.log('  - Hora fin:', horaFin);
+
       // Transformar datos del frontend al formato del backend
       const backendData = {
         clienteId: parseInt(servicioData.clienteId),
@@ -67,9 +94,14 @@ const servicioService = {
         ciudadServicio: servicioData.ciudadServicio || null,
         distritoServicio: servicioData.distritoServicio || null,
         
-        // Combinar fecha y hora en fechaProgramada
-        fechaProgramada: servicioData.fecha && servicioData.hora ? 
-          new Date(`${servicioData.fecha}T${servicioData.hora}:00`).toISOString() : null,
+        // Usar hora de inicio para fechaProgramada
+        fechaProgramada: servicioData.fecha && horaInicio ? 
+          new Date(`${servicioData.fecha}T${horaInicio}:00`).toISOString() : null,
+        
+        // Campos de rango horario
+        horaInicio: horaInicio,
+        horaFin: horaFin,
+        rangoHorario: servicioData.hora,
         
         // Manejar múltiples equipos - por ahora tomar el primero
         equipoId: servicioData.equipos && servicioData.equipos.length > 0 ? 

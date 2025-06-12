@@ -79,6 +79,35 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
 
   console.log('❄️ Equipos del cliente seleccionado:', misEquipos.length, misEquipos);
 
+  // Función para resetear el formulario
+  const resetForm = () => {
+    console.log('🔄 Reseteando formulario...');
+    setFormData({
+      tipo: '',
+      restaurante: '',
+      descripcion: '',
+      equiposSeleccionados: [],
+      fechaPreferida: '',
+      horaPreferida: '',
+      urgencia: 'baja',
+      ubicacionSeleccionada: '',
+      clienteSeleccionado: '',
+      programacion: {
+        fechaInicio: '',
+        fechaFin: '',
+        frecuencia: 'mensual',
+        diasSemana: [],
+        diaMes: '',
+        fechasEspecificas: []
+      }
+    });
+    setEquiposCliente([]);
+    if (user.userType === 'admin' || user.userType === 'tecnico') {
+      setClienteActual(null);
+    }
+    console.log('✅ Formulario reseteado exitosamente');
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     console.log(`📝 HandleChange - Campo: ${name}, Valor: ${value}, Tipo: ${typeof value}`);
@@ -298,6 +327,10 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
 
       console.log('🎉 === SERVICIO GUARDADO EXITOSAMENTE EN LA BASE DE DATOS ===');
       showAlert('Solicitud de orden de servicio enviada exitosamente', 'success');
+      
+      // Resetear el formulario antes de cerrar
+      resetForm();
+      
       onClose();
       
     } catch (error) {
@@ -1138,6 +1171,7 @@ const SolicitarServicio = () => {
           onClose={() => setShowFormModal(false)}
           title="Nueva Orden de Servicio"
           size="large"
+          key={`service-form-${showFormModal ? Date.now() : 'closed'}`}
         >
           <FormularioOrdenServicio 
             onClose={() => setShowFormModal(false)}

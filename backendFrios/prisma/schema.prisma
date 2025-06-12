@@ -134,6 +134,9 @@ model Servicio {
   fechaInicio       DateTime?
   motivoCancelacion String?
   numeroOrden       String?          @unique
+  horaInicio        String?
+  horaFin           String?
+  rangoHorario      String?
   cliente           Cliente          @relation(fields: [clienteId], references: [id])
   equipo            Equipo?          @relation(fields: [equipoId], references: [id])
   tecnico           Tecnico?         @relation(fields: [tecnicoId], references: [id])
