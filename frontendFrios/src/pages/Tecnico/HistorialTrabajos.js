@@ -1,6 +1,8 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
 import AuthContext from '../../context/AuthContext';
+import servicioService from '../../services/servicio.service';
+import tecnicoService from '../../services/tecnico.service';
 
 const HistorialTrabajos = () => {
   const { data } = useContext(DataContext);
@@ -9,7 +11,37 @@ const HistorialTrabajos = () => {
   const [filterTipo, setFilterTipo] = useState('todos');
   const [selectedServicio, setSelectedServicio] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [serviciosBackend, setServiciosBackend] = useState([]);
+  const [loading, setLoading] = useState(true);
   
+  // Cargar datos del backend
+  useEffect(() => {
+    const cargarHistorialTrabajos = async () => {
+      try {
+        setLoading(true);
+        console.log('🔄 Cargando historial de trabajos del técnico...');
+        
+        // Cargar servicios del backend
+        const serviciosResponse = await servicioService.getAll({ limit: 100 });
+        console.log('📊 Servicios cargados del backend:', serviciosResponse.data?.length || 0);
+        
+        if (serviciosResponse.success && serviciosResponse.data) {
+          setServiciosBackend(serviciosResponse.data);
+        } else {
+          console.log('⚠️ No se pudieron cargar servicios del backend');
+          setServiciosBackend([]);
+        }
+      } catch (error) {
+        console.error('❌ Error cargando servicios:', error);
+        setServiciosBackend([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarHistorialTrabajos();
+  }, []);
+
   // Buscar el técnico actual basado en el userId del backend
   const tecnicoActual = data.tecnicos?.find(t => {
     // Comparar con el userId del usuario logueado
@@ -23,16 +55,20 @@ const HistorialTrabajos = () => {
     especialidad: 'Refrigeración Industrial'
   };
   
-  // Obtener servicios completados del técnico (usando estructura del backend)
+  // Usar servicios del backend y filtrar por técnico y estado completado
+  const serviciosDisponibles = serviciosBackend.length > 0 ? serviciosBackend : (data.servicios || []);
   const misServiciosHistorial = tecnicoActual && tecnicoActual.id 
-    ? (data.servicios || []).filter(s => {
-        // Comparar con tecnicoId y filtrar solo estados COMPLETADO
-        return s.tecnicoId === tecnicoActual.id && s.estado === 'COMPLETADO';
+    ? serviciosDisponibles.filter(s => {
+        // Comparar con tecnicoId y filtrar solo estados completados
+        return s.tecnicoId === tecnicoActual.id && 
+               (s.estado === 'COMPLETADO' || s.estado === 'completado');
       })
     : [];
 
   console.log('🔍 === DEBUGGING HISTORIAL TRABAJOS ===');
+  console.log('👤 Usuario actual:', user);
   console.log('👤 Técnico actual:', tecnicoActual);
+  console.log('📊 Total servicios en backend:', serviciosBackend?.length || 0);
   console.log('📊 Total servicios en data:', data.servicios?.length || 0);
   console.log('📋 Servicios del técnico (historial):', misServiciosHistorial?.length || 0);
   console.log('📄 Muestra de servicios:', misServiciosHistorial.slice(0, 3));
@@ -111,6 +147,20 @@ const HistorialTrabajos = () => {
     setSelectedServicio(servicio);
     setShowDetailsModal(true);
   };
+
+  // Mostrar loading mientras cargan los datos
+  if (loading) {
+    return (
+      <div className="w-full max-w-6xl mx-auto p-6 animate-fadeIn">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <i className="fas fa-spinner fa-spin text-4xl text-primary mb-4"></i>
+            <p className="text-gray-600">Cargando historial de trabajos...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-6xl mx-auto p-6 animate-fadeIn">

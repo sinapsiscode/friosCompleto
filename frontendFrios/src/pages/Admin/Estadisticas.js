@@ -4,6 +4,19 @@ import { showAlert } from '../../utils/sweetAlert';
 
 const Estadisticas = () => {
   const { data } = useContext(DataContext);
+  
+  // Debug: mostrar datos cargados
+  console.log('📊 DATOS CARGADOS EN ESTADÍSTICAS:');
+  console.log('  - Clientes:', data.clientes?.length || 0);
+  console.log('  - Equipos:', data.equipos?.length || 0);
+  console.log('  - Servicios:', data.servicios?.length || 0);
+  console.log('  - Técnicos:', data.tecnicos?.length || 0);
+  if (data.equipos?.length > 0) {
+    console.log('  - Primer equipo:', data.equipos[0]);
+  }
+  if (data.servicios?.length > 0) {
+    console.log('  - Primer servicio:', data.servicios[0]);
+  }
   const [periodo, setPeriodo] = useState('mes');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -22,8 +35,8 @@ const Estadisticas = () => {
       
       // Servicios por tipo
       const serviciosPorTipo = {
-        preventivo: data.servicios.filter(s => s.tipo === 'preventivo').length,
-        correctivo: data.servicios.filter(s => s.tipo === 'correctivo').length
+        preventivo: data.servicios.filter(s => s.tipoServicio === 'preventivo' || s.tipoServicio === 'programado').length,
+        correctivo: data.servicios.filter(s => s.tipoServicio === 'correctivo' || s.tipoServicio === 'Correctivo').length
       };
       
       // Servicios por técnico
@@ -62,8 +75,8 @@ const Estadisticas = () => {
     const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
     return meses.map((mes, index) => {
       const count = data.servicios.filter(s => {
-        const fecha = new Date(s.fecha);
-        return fecha.getMonth() === index && fecha.getFullYear() === 2024;
+        const fecha = new Date(s.fechaProgramada || s.fechaSolicitud);
+        return fecha.getMonth() === index && fecha.getFullYear() === 2025;
       }).length;
       return { mes, count };
     });
@@ -80,7 +93,7 @@ const Estadisticas = () => {
   const calcularPromedioSatisfaccionTecnicos = () => {
     // Obtener todas las evaluaciones de servicios completados
     const serviciosConEvaluacion = data.servicios.filter(s => 
-      s.estado === 'completado' && 
+      s.estado === 'COMPLETADO' && 
       s.evaluacion && 
       s.evaluacion.calificacion
     );
@@ -112,7 +125,7 @@ const Estadisticas = () => {
   };
 
   const calcularTiempoPromedioResolucion = () => {
-    const serviciosCompletados = data.servicios.filter(s => s.estado === 'completado');
+    const serviciosCompletados = data.servicios.filter(s => s.estado === 'COMPLETADO');
     
     if (serviciosCompletados.length === 0) {
       return "Sin datos";
@@ -343,7 +356,7 @@ const Estadisticas = () => {
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Servicios Completados</div>
-                <div class="kpi-value">${data.servicios.filter(s => s.estado === 'completado').length}</div>
+                <div class="kpi-value">${data.servicios.filter(s => s.estado === 'COMPLETADO').length}</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Clientes Registrados</div>
@@ -399,7 +412,7 @@ const Estadisticas = () => {
             <tbody>
                 ${data.tecnicos.map(tecnico => {
                   const servicios = data.servicios.filter(s => s.tecnicoId === tecnico.id);
-                  const completados = servicios.filter(s => s.estado === 'completado').length;
+                  const completados = servicios.filter(s => s.estado === 'COMPLETADO').length;
                   const evaluaciones = servicios.filter(s => s.evaluacion);
                   const promEval = evaluaciones.length > 0 
                     ? (evaluaciones.reduce((acc, s) => acc + s.evaluacion.calificacion, 0) / evaluaciones.length).toFixed(1)
@@ -434,9 +447,9 @@ const Estadisticas = () => {
             </thead>
             <tbody>
                 ${data.clientes.map(cliente => {
-                  const equiposCliente = data.equipos.filter(e => cliente.equipos?.includes(e.id));
-                  const operativos = equiposCliente.filter(e => e.estado === 'operativo').length;
-                  const mantenimiento = equiposCliente.filter(e => e.estado === 'mantenimiento').length;
+                  const equiposCliente = data.equipos.filter(e => e.clienteId === cliente.id);
+                  const operativos = equiposCliente.filter(e => e.estadoOperativo === 'operativo').length;
+                  const mantenimiento = equiposCliente.filter(e => e.estadoOperativo === 'mantenimiento').length;
                   const porcentajeOp = equiposCliente.length > 0 ? Math.round((operativos / equiposCliente.length) * 100) : 0;
                   
                   return `
@@ -641,10 +654,10 @@ const Estadisticas = () => {
       </tr>
       <tr>
         <td class="data-alt bold">Servicios Completados</td>
-        <td class="data-alt center bold">${data.servicios.filter(s => s.estado === 'completado').length}</td>
+        <td class="data-alt center bold">${data.servicios.filter(s => s.estado === 'COMPLETADO').length}</td>
         <td class="data-alt center">50</td>
-        <td class="${data.servicios.filter(s => s.estado === 'completado').length >= 50 ? 'success' : 'danger'}">${data.servicios.filter(s => s.estado === 'completado').length >= 50 ? '✓ CUMPLE' : '✗ NO CUMPLE'}</td>
-        <td class="data-alt center">${data.servicios.filter(s => s.estado === 'completado').length - 50}</td>
+        <td class="${data.servicios.filter(s => s.estado === 'COMPLETADO').length >= 50 ? 'success' : 'danger'}">${data.servicios.filter(s => s.estado === 'COMPLETADO').length >= 50 ? '✓ CUMPLE' : '✗ NO CUMPLE'}</td>
+        <td class="data-alt center">${data.servicios.filter(s => s.estado === 'COMPLETADO').length - 50}</td>
         <td class="data-alt">Total acumulado del período</td>
       </tr>
     </table>
@@ -669,12 +682,12 @@ const Estadisticas = () => {
         const total = chartData.serviciosPorMes.reduce((acc, item) => acc + item.count, 0);
         return chartData.serviciosPorMes.map((item, index) => {
           const mesServicios = data.servicios.filter(s => {
-            const fecha = new Date(s.fecha);
+            const fecha = new Date(s.fechaProgramada || s.fechaSolicitud);
             return fecha.toLocaleDateString('es', { month: 'short' }) === item.mes;
           });
-          const preventivos = mesServicios.filter(s => s.tipo === 'preventivo').length;
-          const correctivos = mesServicios.filter(s => s.tipo === 'correctivo').length;
-          const completados = mesServicios.filter(s => s.estado === 'completado').length;
+          const preventivos = mesServicios.filter(s => s.tipoServicio === 'preventivo' || s.tipoServicio === 'programado').length;
+          const correctivos = mesServicios.filter(s => s.tipoServicio === 'correctivo' || s.tipoServicio === 'Correctivo').length;
+          const completados = mesServicios.filter(s => s.estado === 'COMPLETADO').length;
           const evaluados = mesServicios.filter(s => s.evaluacion).length;
           const califProm = evaluados > 0 
             ? (mesServicios.filter(s => s.evaluacion).reduce((acc, s) => acc + s.evaluacion.calificacion, 0) / evaluados).toFixed(1)
@@ -716,7 +729,7 @@ const Estadisticas = () => {
       </tr>
       ${data.tecnicos.map((tecnico, index) => {
         const servicios = data.servicios.filter(s => s.tecnicoId === tecnico.id);
-        const completados = servicios.filter(s => s.estado === 'completado').length;
+        const completados = servicios.filter(s => s.estado === 'COMPLETADO').length;
         const enProceso = servicios.filter(s => s.estado === 'en-progreso').length;
         const evaluaciones = servicios.filter(s => s.evaluacion);
         const promEval = evaluaciones.length > 0 
@@ -761,8 +774,8 @@ const Estadisticas = () => {
         <td class="header">ÚLTIMA ATENCIÓN</td>
       </tr>
       ${data.clientes.map((cliente, index) => {
-        const equiposCliente = data.equipos.filter(e => cliente.equipos?.includes(e.id));
-        const operativos = equiposCliente.filter(e => e.estado === 'operativo').length;
+        const equiposCliente = data.equipos.filter(e => e.clienteId === cliente.id);
+        const operativos = equiposCliente.filter(e => e.estadoOperativo === 'operativo').length;
         const porcentajeOp = equiposCliente.length > 0 ? Math.round((operativos / equiposCliente.length) * 100) : 0;
         const serviciosCliente = data.servicios.filter(s => s.clienteId === cliente.id);
         const ultimoServicio = serviciosCliente.sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
@@ -834,7 +847,7 @@ const Estadisticas = () => {
           satisfaccionPromedioTecnicos: calcularPromedioSatisfaccionTecnicos(),
           satisfaccionCliente: parseFloat(calcularEvaluacionesPromedio()),
           tiempoPromedioResolucion: calcularTiempoPromedioResolucion(),
-          serviciosCompletados: data.servicios.filter(s => s.estado === 'completado').length,
+          serviciosCompletados: data.servicios.filter(s => s.estado === 'COMPLETADO').length,
           clientesRegistrados: data.clientes.length
         },
         graficos: {
@@ -844,7 +857,7 @@ const Estadisticas = () => {
         },
         tecnicos: data.tecnicos.map(tecnico => {
           const servicios = data.servicios.filter(s => s.tecnicoId === tecnico.id);
-          const completados = servicios.filter(s => s.estado === 'completado').length;
+          const completados = servicios.filter(s => s.estado === 'COMPLETADO').length;
           const evaluaciones = servicios.filter(s => s.evaluacion);
           const promEval = evaluaciones.length > 0 
             ? parseFloat((evaluaciones.reduce((acc, s) => acc + s.evaluacion.calificacion, 0) / evaluaciones.length).toFixed(1))
@@ -860,13 +873,13 @@ const Estadisticas = () => {
           };
         }),
         equiposPorCliente: data.clientes.map(cliente => {
-          const equiposCliente = data.equipos.filter(e => cliente.equipos?.includes(e.id));
+          const equiposCliente = data.equipos.filter(e => e.clienteId === cliente.id);
           return {
             clienteId: cliente.id,
             cliente: cliente.razonSocial || `${cliente.nombre} ${cliente.apellido}`,
             totalEquipos: equiposCliente.length,
-            operativos: equiposCliente.filter(e => e.estado === 'operativo').length,
-            enMantenimiento: equiposCliente.filter(e => e.estado === 'mantenimiento').length
+            operativos: equiposCliente.filter(e => e.estadoOperativo === 'operativo').length,
+            enMantenimiento: equiposCliente.filter(e => e.estadoOperativo === 'mantenimiento').length
           };
         })
       };
@@ -1029,7 +1042,7 @@ const Estadisticas = () => {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm text-gray-600 font-medium uppercase tracking-wide mb-1">Órdenes Completadas</h3>
-            <p className="text-3xl font-bold text-gray-900 leading-tight my-1">{data.servicios.filter(s => s.estado === 'completado').length}</p>
+            <p className="text-3xl font-bold text-gray-900 leading-tight my-1">{data.servicios.filter(s => s.estado === 'COMPLETADO').length}</p>
             <span className="text-sm inline-flex items-center gap-1 py-1 px-3 rounded-full font-medium bg-success/10 text-success-dark">
               <i className="fas fa-arrow-up text-xs"></i> 12 vs mes anterior
             </span>
@@ -1112,7 +1125,7 @@ const Estadisticas = () => {
               <tbody>
                 {data.tecnicos.map(tecnico => {
                   const servicios = data.servicios.filter(s => s.tecnicoId === tecnico.id);
-                  const completados = servicios.filter(s => s.estado === 'completado').length;
+                  const completados = servicios.filter(s => s.estado === 'COMPLETADO').length;
                   const evaluaciones = servicios.filter(s => s.evaluacion);
                   const promEval = evaluaciones.length > 0 
                     ? (evaluaciones.reduce((acc, s) => acc + s.evaluacion.calificacion, 0) / evaluaciones.length).toFixed(1)

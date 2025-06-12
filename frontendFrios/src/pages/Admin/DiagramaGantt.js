@@ -284,12 +284,14 @@ const DiagramaGantt = () => {
                     {serviciosPorCliente.map((servicio, index) => {
                       const cliente = data.clientes.find(c => c.id === servicio.clienteId);
                       const tecnico = data.tecnicos.find(t => t.id === servicio.tecnicoId);
-                      const equipos = data.equipos.filter(e => servicio.equipos?.includes(e.id));
+                      const equipos = servicio.equipoId ? data.equipos.filter(e => e.id === servicio.equipoId) : 
+                                     (servicio.detalles && JSON.parse(servicio.detalles).equiposSeleccionados ? 
+                                      data.equipos.filter(e => JSON.parse(servicio.detalles).equiposSeleccionados.includes(e.id)) : []);
                       const position = getPositionPercentage(servicio.fecha);
                       
                       // Calcular duración estimada según el tipo
-                      const duracionDias = servicio.tipo === 'correctivo' ? 1 : 
-                                         servicio.tipo === 'preventivo' ? 2 : 3;
+                      const duracionDias = servicio.tipoServicioServicio === 'correctivo' || servicio.tipoServicioServicio === 'Correctivo' ? 1 : 
+                                         servicio.tipoServicioServicio === 'preventivo' || servicio.tipoServicioServicio === 'programado' ? 2 : 3;
                       const width = (duracionDias / totalDays) * 100;
                       
                       return (
@@ -299,14 +301,14 @@ const DiagramaGantt = () => {
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-medium text-gray-700">
-                                  {servicio.tipo === 'programado' ? 'Programado' : 'Correctivo'}
+                                  {servicio.tipoServicio === 'programado' ? 'Programado' : 'Correctivo'}
                                 </span>
                                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                  servicio.tipo === 'programado' ? 'bg-blue-100 text-blue-700' :
-                                  servicio.tipo === 'correctivo' ? 'bg-yellow-100 text-yellow-700' :
+                                  servicio.tipoServicio === 'programado' ? 'bg-blue-100 text-blue-700' :
+                                  servicio.tipoServicioServicio === 'correctivo' || servicio.tipoServicioServicio === 'Correctivo' ? 'bg-yellow-100 text-yellow-700' :
                                   'bg-gray-100 text-gray-700'
                                 }`}>
-                                  {servicio.tipo}
+                                  {servicio.tipoServicio}
                                 </span>
                               </div>
                               <p className="text-xs text-gray-600 truncate mt-0.5">
@@ -344,7 +346,7 @@ const DiagramaGantt = () => {
                                   'fa-times-circle'
                                 } text-xs`}></i>
                                 <span className="text-xs font-medium truncate">
-                                  {new Date(servicio.fecha).toLocaleDateString('es', { day: 'numeric', month: 'short' })}
+                                  {new Date(servicio.fechaProgramada || servicio.fechaSolicitud).toLocaleDateString('es', { day: 'numeric', month: 'short' })}
                                 </span>
                               </div>
                               
@@ -363,7 +365,7 @@ const DiagramaGantt = () => {
                                   </div>
                                   <div>
                                     <p className="text-gray-400">Tipo</p>
-                                    <p className="font-semibold capitalize">{servicio.tipo}</p>
+                                    <p className="font-semibold capitalize">{servicio.tipoServicio}</p>
                                   </div>
                                   <div>
                                     <p className="text-gray-400">Estado</p>
@@ -371,7 +373,7 @@ const DiagramaGantt = () => {
                                   </div>
                                   <div>
                                     <p className="text-gray-400">Fecha</p>
-                                    <p className="font-semibold">{new Date(servicio.fecha).toLocaleDateString()}</p>
+                                    <p className="font-semibold">{new Date(servicio.fechaProgramada || servicio.fechaSolicitud).toLocaleDateString()}</p>
                                   </div>
                                   <div>
                                     <p className="text-gray-400">Hora</p>
@@ -463,7 +465,7 @@ const DiagramaGantt = () => {
                     return (
                       <tr key={servicio.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {servicio.tipo === 'programado' ? 'Mantenimiento Programado' : 'Servicio Correctivo'}
+                          {servicio.tipoServicio === 'programado' ? 'Mantenimiento Programado' : 'Servicio Correctivo'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {cliente 
@@ -544,7 +546,7 @@ const DiagramaGantt = () => {
                     Detalle de la Orden de Servicio
                   </h2>
                   <p className="text-sm text-gray-500 mt-1">
-                    {selectedServicio.tipo === 'programado' ? 'Mantenimiento Programado' : 'Servicio Correctivo'}
+                    {selectedServicio.tipoServicio === 'programado' ? 'Mantenimiento Programado' : 'Servicio Correctivo'}
                   </p>
                 </div>
                 <button
@@ -601,11 +603,11 @@ const DiagramaGantt = () => {
                   {selectedServicio.estado.charAt(0).toUpperCase() + selectedServicio.estado.slice(1)}
                 </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  selectedServicio.tipo === 'programado' ? 'bg-blue-100 text-blue-800' :
-                  selectedServicio.tipo === 'correctivo' ? 'bg-yellow-100 text-yellow-800' :
+                  selectedServicio.tipoServicio === 'programado' ? 'bg-blue-100 text-blue-800' :
+                  selectedServicio.tipoServicio === 'correctivo' ? 'bg-yellow-100 text-yellow-800' :
                   'bg-gray-100 text-gray-800'
                 }`}>
-                  {selectedServicio.tipo.charAt(0).toUpperCase() + selectedServicio.tipo.slice(1)}
+                  {selectedServicio.tipoServicio.charAt(0).toUpperCase() + selectedServicio.tipoServicio.slice(1)}
                 </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   selectedServicio.prioridad === 'alta' ? 'bg-red-100 text-red-800' :
@@ -660,7 +662,9 @@ const DiagramaGantt = () => {
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="font-semibold text-gray-900 mb-3">Equipos</h3>
                 {(() => {
-                  const equipos = data.equipos.filter(e => selectedServicio.equipos?.includes(e.id));
+                  const equipos = selectedServicio.equipoId ? data.equipos.filter(e => e.id === selectedServicio.equipoId) : 
+                                 (selectedServicio.detalles && JSON.parse(selectedServicio.detalles).equiposSeleccionados ? 
+                                  data.equipos.filter(e => JSON.parse(selectedServicio.detalles).equiposSeleccionados.includes(e.id)) : []);
                   return equipos.length > 0 ? (
                     <div className="space-y-4">
                       {equipos.map(equipo => (

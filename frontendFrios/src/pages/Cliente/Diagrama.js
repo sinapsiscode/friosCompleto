@@ -318,12 +318,14 @@ const Diagrama = () => {
                   <div className="space-y-2">
                     {filteredServicios.map((servicio, index) => {
                       const tecnico = data.tecnicos.find(t => t.id === servicio.tecnicoId);
-                      const equipos = data.equipos.filter(e => servicio.equipos?.includes(e.id));
+                      const equipos = servicio.equipoId ? data.equipos.filter(e => e.id === servicio.equipoId) : 
+                                   (servicio.detalles && JSON.parse(servicio.detalles).equiposSeleccionados ? 
+                                    data.equipos.filter(e => JSON.parse(servicio.detalles).equiposSeleccionados.includes(e.id)) : []);
                       const position = getPositionPercentage(servicio.fecha);
                       
                       // Calcular duración estimada según el tipo
-                      const duracionDias = servicio.tipo === 'correctivo' ? 1 : 
-                                         servicio.tipo === 'preventivo' ? 2 : 3;
+                      const duracionDias = servicio.tipoServicioServicio === 'correctivo' || servicio.tipoServicioServicio === 'Correctivo' ? 1 : 
+                                         servicio.tipoServicioServicio === 'preventivo' || servicio.tipoServicioServicio === 'programado' ? 2 : 3;
                       const width = (duracionDias / totalDays) * 100;
                       
                       return (
@@ -333,11 +335,11 @@ const Diagrama = () => {
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                  servicio.tipo === 'programado' ? 'bg-blue-100 text-blue-700' :
-                                  servicio.tipo === 'correctivo' ? 'bg-yellow-100 text-yellow-700' :
+                                  servicio.tipoServicio === 'programado' ? 'bg-blue-100 text-blue-700' :
+                                  servicio.tipoServicioServicio === 'correctivo' || servicio.tipoServicioServicio === 'Correctivo' ? 'bg-yellow-100 text-yellow-700' :
                                   'bg-gray-100 text-gray-700'
                                 }`}>
-                                  {servicio.tipo}
+                                  {servicio.tipoServicio}
                                 </span>
                               </div>
                               <p className="text-xs text-gray-600 truncate mt-1">
@@ -368,7 +370,7 @@ const Diagrama = () => {
                                   'fa-times-circle'
                                 } text-xs`}></i>
                                 <span className="text-xs font-medium truncate">
-                                  {new Date(servicio.fecha).toLocaleDateString('es', { day: 'numeric', month: 'short' })}
+                                  {new Date(servicio.fechaProgramada || servicio.fechaSolicitud).toLocaleDateString('es', { day: 'numeric', month: 'short' })}
                                 </span>
                               </div>
                               
@@ -381,11 +383,11 @@ const Diagrama = () => {
                                   </div>
                                   <div>
                                     <p className="text-gray-400">Tipo</p>
-                                    <p className="font-semibold capitalize">{servicio.tipo}</p>
+                                    <p className="font-semibold capitalize">{servicio.tipoServicio}</p>
                                   </div>
                                   <div>
                                     <p className="text-gray-400">Fecha</p>
-                                    <p className="font-semibold">{new Date(servicio.fecha).toLocaleDateString()}</p>
+                                    <p className="font-semibold">{new Date(servicio.fechaProgramada || servicio.fechaSolicitud).toLocaleDateString()}</p>
                                   </div>
                                   <div>
                                     <p className="text-gray-400">Hora</p>
@@ -421,7 +423,7 @@ const Diagrama = () => {
                             </div>
 
                             {/* Conexión para servicios programados */}
-                            {servicio.tipo === 'programado' && index < filteredServicios.length - 1 && (
+                            {servicio.tipoServicio === 'programado' && index < filteredServicios.length - 1 && (
                               <div
                                 className="absolute h-px bg-gray-300 top-1/2"
                                 style={{
@@ -489,23 +491,25 @@ const Diagrama = () => {
                 ) : (
                   filteredServicios.map(servicio => {
                     const tecnico = data.tecnicos.find(t => t.id === servicio.tecnicoId);
-                    const equipos = data.equipos.filter(e => servicio.equipos?.includes(e.id));
+                    const equipos = servicio.equipoId ? data.equipos.filter(e => e.id === servicio.equipoId) : 
+                                   (servicio.detalles && JSON.parse(servicio.detalles).equiposSeleccionados ? 
+                                    data.equipos.filter(e => JSON.parse(servicio.detalles).equiposSeleccionados.includes(e.id)) : []);
                     
                     return (
                       <tr key={servicio.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(servicio.fecha).toLocaleDateString()}
+                          {new Date(servicio.fechaProgramada || servicio.fechaSolicitud).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {servicio.descripcion}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            servicio.tipo === 'programado' ? 'bg-blue-100 text-blue-800' :
-                            servicio.tipo === 'correctivo' ? 'bg-yellow-100 text-yellow-800' :
+                            servicio.tipoServicio === 'programado' ? 'bg-blue-100 text-blue-800' :
+                            servicio.tipoServicioServicio === 'correctivo' || servicio.tipoServicioServicio === 'Correctivo' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                            {servicio.tipo}
+                            {servicio.tipoServicio}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -619,11 +623,11 @@ const Diagrama = () => {
                   {selectedServicio.estado.charAt(0).toUpperCase() + selectedServicio.estado.slice(1)}
                 </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  selectedServicio.tipo === 'programado' ? 'bg-blue-100 text-blue-800' :
-                  selectedServicio.tipo === 'correctivo' ? 'bg-yellow-100 text-yellow-800' :
+                  selectedServicio.tipoServicio === 'programado' ? 'bg-blue-100 text-blue-800' :
+                  selectedServicio.tipoServicio === 'correctivo' ? 'bg-yellow-100 text-yellow-800' :
                   'bg-gray-100 text-gray-800'
                 }`}>
-                  {selectedServicio.tipo.charAt(0).toUpperCase() + selectedServicio.tipo.slice(1)}
+                  {selectedServicio.tipoServicio.charAt(0).toUpperCase() + selectedServicio.tipoServicio.slice(1)}
                 </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   selectedServicio.prioridad === 'alta' ? 'bg-red-100 text-red-800' :
@@ -678,7 +682,9 @@ const Diagrama = () => {
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="font-semibold text-gray-900 mb-3">Equipos</h3>
                 {(() => {
-                  const equipos = data.equipos.filter(e => selectedServicio.equipos?.includes(e.id));
+                  const equipos = selectedServicio.equipoId ? data.equipos.filter(e => e.id === selectedServicio.equipoId) : 
+                                 (selectedServicio.detalles && JSON.parse(selectedServicio.detalles).equiposSeleccionados ? 
+                                  data.equipos.filter(e => JSON.parse(selectedServicio.detalles).equiposSeleccionados.includes(e.id)) : []);
                   return equipos.length > 0 ? (
                     <div className="space-y-4">
                       {equipos.map(equipo => (
