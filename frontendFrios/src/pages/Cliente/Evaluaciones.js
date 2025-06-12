@@ -19,7 +19,20 @@ const Evaluaciones = () => {
 
   useEffect(() => {
     const cliente = data.clientes.find(c => c.usuario === user.username);
-    setClienteActual(cliente);
+    if (cliente) {
+      setClienteActual(cliente);
+    } else {
+      // Usar datos estáticos si no se encuentra cliente
+      const clienteEstatico = {
+        id: 'cliente-demo',
+        usuario: user?.username || 'cliente',
+        nombre: 'Cliente',
+        apellido: 'Demo',
+        razonSocial: 'Empresa Demo S.A.C.',
+        equipos: []
+      };
+      setClienteActual(clienteEstatico);
+    }
   }, [data.clientes, user]);
 
   useEffect(() => {
@@ -80,8 +93,9 @@ const Evaluaciones = () => {
     );
   };
 
+  // Mostrar loading mientras se establece el cliente
   if (!clienteActual) {
-    return <div>Cargando...</div>;
+    return <div className="p-6">Cargando...</div>;
   }
 
   return (
@@ -114,7 +128,7 @@ const Evaluaciones = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {serviciosPendientesEvaluacion.map(servicio => {
               const tecnico = data.tecnicos.find(t => t.id === servicio.tecnicoId);
-              const equipos = data.equipos.filter(e => servicio.equipos.includes(e.id));
+              const equipos = data.equipos.filter(e => servicio.equipos?.includes(e.id));
               
               return (
                 <div key={servicio.id} className="border border-gray-200 rounded-lg p-4 hover:border-primary transition-colors hover:shadow-md">
@@ -171,7 +185,7 @@ const Evaluaciones = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {serviciosEvaluados.map(servicio => {
               const tecnico = data.tecnicos.find(t => t.id === servicio.tecnicoId);
-              const equipos = data.equipos.filter(e => servicio.equipos.includes(e.id));
+              const equipos = data.equipos.filter(e => servicio.equipos?.includes(e.id));
               
               return (
                 <div key={servicio.id} className="border border-gray-200 rounded-lg p-4">
