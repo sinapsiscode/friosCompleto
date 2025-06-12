@@ -1,25 +1,24 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
 import { showAlert } from '../../utils/sweetAlert';
+import servicioService from '../../services/servicio.service';
+import clienteService from '../../services/cliente.service';
+import tecnicoService from '../../services/tecnico.service';
+import equipoService from '../../services/equipo.service';
 
 const Estadisticas = () => {
   const { data } = useContext(DataContext);
   
-  // Debug: mostrar datos cargados
-  console.log('📊 DATOS CARGADOS EN ESTADÍSTICAS:');
-  console.log('  - Clientes:', data.clientes?.length || 0);
-  console.log('  - Equipos:', data.equipos?.length || 0);
-  console.log('  - Servicios:', data.servicios?.length || 0);
-  console.log('  - Técnicos:', data.tecnicos?.length || 0);
-  if (data.equipos?.length > 0) {
-    console.log('  - Primer equipo:', data.equipos[0]);
-  }
-  if (data.servicios?.length > 0) {
-    console.log('  - Primer servicio:', data.servicios[0]);
-  }
   const [periodo, setPeriodo] = useState('mes');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [datosBackend, setDatosBackend] = useState({
+    servicios: [],
+    clientes: [],
+    tecnicos: [],
+    equipos: []
+  });
   const [chartData, setChartData] = useState({
     serviciosPorMes: [],
     serviciosPorTipo: [],
@@ -27,22 +26,70 @@ const Estadisticas = () => {
     evaluaciones: []
   });
 
+  // Cargar datos del backend
   useEffect(() => {
-    // Procesar datos para los gráficos
+    const cargarDatosEstadisticas = async () => {
+      try {
+        setLoading(true);
+        console.log('📊 Cargando datos para estadísticas...');
+        
+        // Cargar todos los datos en paralelo
+        const [serviciosRes, clientesRes, tecnicosRes, equiposRes] = await Promise.all([
+          servicioService.getAll({ limit: 200 }),
+          clienteService.getAll({ limit: 100 }),
+          tecnicoService.getAll({ limit: 50 }),
+          equipoService.getAll({ limit: 500 })
+        ]);
+        
+        console.log('✅ Datos cargados:', {
+          servicios: serviciosRes.data?.length || 0,
+          clientes: clientesRes.data?.length || 0,
+          tecnicos: tecnicosRes.data?.length || 0,
+          equipos: equiposRes.data?.length || 0
+        });
+        
+        setDatosBackend({
+          servicios: serviciosRes.data || [],
+          clientes: clientesRes.data || [],
+          tecnicos: tecnicosRes.data || [],
+          equipos: equiposRes.data || []
+        });
+        
+      } catch (error) {
+        console.error('❌ Error cargando datos de estadísticas:', error);
+        // Fallback a datos del contexto
+        setDatosBackend({
+          servicios: data.servicios || [],
+          clientes: data.clientes || [],
+          tecnicos: data.tecnicos || [],
+          equipos: data.equipos || []
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarDatosEstadisticas();
+  }, []);
+
+  useEffect(() => {
+    // Procesar datos para los gráficos cuando se cargan los datos del backend
     const procesarDatos = () => {
+      if (datosBackend.servicios.length === 0) return;
+      
       // Servicios por mes
       const serviciosPorMes = calcularServiciosPorMes();
       
       // Servicios por tipo
       const serviciosPorTipo = {
-        preventivo: data.servicios.filter(s => s.tipoServicio === 'preventivo' || s.tipoServicio === 'programado').length,
-        correctivo: data.servicios.filter(s => s.tipoServicio === 'correctivo' || s.tipoServicio === 'Correctivo').length
+        preventivo: datosBackend.servicios.filter(s => s.tipoServicio === 'preventivo' || s.tipoServicio === 'programado').length,
+        correctivo: datosBackend.servicios.filter(s => s.tipoServicio === 'correctivo' || s.tipoServicio === 'Correctivo').length
       };
       
       // Servicios por técnico
-      const serviciosPorTecnico = data.tecnicos.map(tecnico => ({
+      const serviciosPorTecnico = datosBackend.tecnicos.map(tecnico => ({
         nombre: `${tecnico.nombre} ${tecnico.apellido}`,
-        servicios: data.servicios.filter(s => s.tecnicoId === tecnico.id).length
+        servicios: datosBackend.servicios.filter(s => s.tecnicoId === tecnico.id).length
       }));
       
       // Evaluaciones promedio
@@ -57,7 +104,7 @@ const Estadisticas = () => {
     };
     
     procesarDatos();
-  }, [data, periodo]);
+  }, [datosBackend, periodo]);
 
   // Cerrar menú al hacer clic fuera
   useEffect(() => {
@@ -74,7 +121,7 @@ const Estadisticas = () => {
   const calcularServiciosPorMes = () => {
     const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
     return meses.map((mes, index) => {
-      const count = data.servicios.filter(s => {
+      const count = datosBackend.servicios.filter(s => {
         const fecha = new Date(s.fechaProgramada || s.fechaSolicitud);
         return fecha.getMonth() === index && fecha.getFullYear() === 2025;
       }).length;
@@ -83,7 +130,7 @@ const Estadisticas = () => {
   };
 
   const calcularEvaluacionesPromedio = () => {
-    const serviciosConEvaluacion = data.servicios.filter(s => s.evaluacion);
+    const serviciosConEvaluacion = datosBackend.servicios.filter(s => s.evaluacion);
     if (serviciosConEvaluacion.length === 0) return 0;
     
     const suma = serviciosConEvaluacion.reduce((acc, s) => acc + s.evaluacion.calificacion, 0);

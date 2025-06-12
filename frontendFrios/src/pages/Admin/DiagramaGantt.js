@@ -1,9 +1,31 @@
-import React, { useContext, useState, useMemo } from 'react';
+import React, { useContext, useState, useMemo, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
 import { formatearFecha } from '../../utils/dateUtils';
+import servicioService from '../../services/servicio.service';
+import clienteService from '../../services/cliente.service';
+import tecnicoService from '../../services/tecnico.service';
+import equipoService from '../../services/equipo.service';
 
 const DiagramaGantt = () => {
   const { data } = useContext(DataContext);
+  
+  // Debug: verificar datos en DiagramaGantt
+  console.log('📅 === DIAGRAMA GANTT DEBUG ===');
+  console.log('  - data completo:', data);
+  console.log('  - servicios array:', data.servicios);
+  console.log('  - servicios length:', data.servicios?.length || 0);
+  console.log('  - clientes length:', data.clientes?.length || 0);
+  console.log('  - equipos length:', data.equipos?.length || 0);
+  console.log('  - tecnicos length:', data.tecnicos?.length || 0);
+  
+  if (data.servicios && data.servicios.length > 0) {
+    console.log('  - Servicios encontrados:');
+    data.servicios.forEach((s, i) => {
+      console.log(`    ${i+1}. ID: ${s.id}, Tipo: ${s.tipoServicio}, Estado: ${s.estado}, Cliente: ${s.clienteId}`);
+    });
+  } else {
+    console.log('  - ⚠️ NO HAY SERVICIOS O ARRAY VACIO');
+  }
   const [viewMode, setViewMode] = useState('gantt'); // 'gantt' o 'table'
   const [filterEstado, setFilterEstado] = useState('todos');
   const [filterTipo, setFilterTipo] = useState('todos');
@@ -14,7 +36,12 @@ const DiagramaGantt = () => {
 
   // Obtener todos los servicios
   const todosServicios = useMemo(() => {
-    return data.servicios || [];
+    console.log('🔄 MEMO: Recalculando todosServicios');
+    console.log('     - data.servicios existe:', !!data.servicios);
+    console.log('     - data.servicios.length:', data.servicios?.length || 0);
+    const result = data.servicios || [];
+    console.log('     - resultado final length:', result.length);
+    return result;
   }, [data.servicios]);
 
   // Filtrar servicios
@@ -52,18 +79,28 @@ const DiagramaGantt = () => {
           fechaLimite.setMonth(hoy.getMonth() + 3);
           break;
         case 'pasados':
-          return servicios.filter(s => new Date(s.fecha) < hoy);
+          return servicios.filter(s => new Date(s.fechaProgramada || s.fechaSolicitud) < hoy);
       }
       
       if (filterPeriodo !== 'pasados') {
         servicios = servicios.filter(s => {
-          const fechaServicio = new Date(s.fecha);
+          const fechaServicio = new Date(s.fechaProgramada || s.fechaSolicitud);
           return fechaServicio >= hoy && fechaServicio <= fechaLimite;
         });
       }
     }
 
-    return servicios.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    const result = servicios.sort((a, b) => new Date(a.fechaProgramada || a.fechaSolicitud) - new Date(b.fechaProgramada || b.fechaSolicitud));
+    console.log('     - ✅ RESULTADO FINAL:', result.length, 'servicios filtrados');
+    if (result.length > 0) {
+      console.log('     - Primer servicio filtrado:', {
+        id: result[0].id,
+        tipo: result[0].tipoServicio,
+        estado: result[0].estado,
+        fecha: result[0].fechaProgramada || result[0].fechaSolicitud
+      });
+    }
+    return result;
   }, [todosServicios, filterCliente, filterEstado, filterTipo, filterPeriodo]);
 
   // Calcular fechas para el diagrama de Gantt
@@ -76,7 +113,8 @@ const DiagramaGantt = () => {
       };
     }
 
-    const fechas = filteredServicios.map(s => new Date(s.fecha));
+    const fechas = filteredServicios.map(s => new Date(s.fechaProgramada || s.fechaSolicitud));
+    console.log('     - 📅 Fechas extraídas para Gantt:', fechas);
     const min = new Date(Math.min(...fechas));
     const max = new Date(Math.max(...fechas));
 

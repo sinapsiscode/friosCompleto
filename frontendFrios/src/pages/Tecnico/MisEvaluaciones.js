@@ -2,6 +2,9 @@ import React, { useContext, useState, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
 import AuthContext from '../../context/AuthContext';
 import evaluacionService from '../../services/evaluacion.service';
+import servicioService from '../../services/servicio.service';
+import clienteService from '../../services/cliente.service';
+import equipoService from '../../services/equipo.service';
 
 const MisEvaluaciones = () => {
   const { data } = useContext(DataContext);
@@ -14,6 +17,8 @@ const MisEvaluaciones = () => {
     promedio: 0,
     distribucion: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
   });
+  const [clientesBackend, setClientesBackend] = useState([]);
+  const [equiposBackend, setEquiposBackend] = useState([]);
   
   // Cargar evaluaciones del backend
   useEffect(() => {
@@ -25,24 +30,59 @@ const MisEvaluaciones = () => {
       setLoading(true);
       console.log('📊 Cargando evaluaciones del técnico...');
       
-      const response = await evaluacionService.obtenerEvaluacionesTecnico();
+      // Cargar datos necesarios en paralelo
+      const [serviciosRes, clientesRes, equiposRes] = await Promise.all([
+        servicioService.getAll({ limit: 100 }),
+        clienteService.getAll({ limit: 100 }),
+        equipoService.getAll({ limit: 100 })
+      ]);
       
-      if (response.success) {
-        setMisEvaluaciones(response.data.servicios || []);
-        setEstadisticas(response.data.estadisticas || {
-          total: 0,
-          promedio: 0,
-          distribucion: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      // Guardar clientes y equipos del backend
+      setClientesBackend(clientesRes.data || []);
+      setEquiposBackend(equiposRes.data || []);
+      
+      if (serviciosRes.success && serviciosRes.data) {
+        // Buscar técnico actual
+        const tecnicoActual = data.tecnicos?.find(t => t.userId === user.id) || { id: 1 };
+        
+        // Filtrar servicios con evaluaciones del técnico actual
+        const serviciosConEvaluacion = serviciosRes.data.filter(s => 
+          s.tecnicoId === tecnicoActual.id && 
+          s.evaluacion && 
+          s.evaluacion.calificacion &&
+          (s.estado === 'COMPLETADO' || s.estado === 'completado')
+        );
+        
+        console.log('✅ Servicios con evaluación:', serviciosConEvaluacion);
+        
+        setMisEvaluaciones(serviciosConEvaluacion);
+        
+        // Calcular estadísticas
+        const total = serviciosConEvaluacion.length;
+        const promedio = total > 0 
+          ? (serviciosConEvaluacion.reduce((sum, s) => sum + s.evaluacion.calificacion, 0) / total)
+          : 0;
+          
+        const distribucion = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        serviciosConEvaluacion.forEach(s => {
+          const cal = s.evaluacion.calificacion;
+          if (cal >= 1 && cal <= 5) {
+            distribucion[cal]++;
+          }
         });
-        console.log('✅ Evaluaciones cargadas:', response.data);
+        
+        setEstadisticas({
+          total,
+          promedio: parseFloat(promedio.toFixed(1)),
+          distribucion
+        });
+        
       } else {
-        console.error('❌ Error en respuesta:', response.message);
-        // Fallback a datos locales
+        console.error('❌ Error cargando servicios del backend');
         cargarEvaluacionesLocales();
       }
     } catch (error) {
       console.error('❌ Error al cargar evaluaciones:', error);
-      // Fallback a datos locales
       cargarEvaluacionesLocales();
     } finally {
       setLoading(false);
@@ -254,8 +294,12 @@ const MisEvaluaciones = () => {
         <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
         {filteredEvaluaciones.length > 0 ? (
           filteredEvaluaciones.map(servicio => {
-            const cliente = data.clientes.find(c => c.id === servicio.clienteId);
-            const equipos = data.equipos.filter(e => servicio.equipos?.includes(e.id));
+            // Usar clientes y equipos del backend
+            const clientesDisponibles = clientesBackend.length > 0 ? clientesBackend : data.clientes;
+            const equiposDisponibles = equiposBackend.length > 0 ? equiposBackend : data.equipos;
+            
+            const cliente = servicio.cliente || clientesDisponibles.find(c => c.id === servicio.clienteId);
+            const equipos = equiposDisponibles.filter(e => servicio.equipos?.includes(e.id));
             
             return (
               <div key={servicio.id} className="bg-gray-50 border border-gray-200 rounded-lg p-6 hover:bg-white hover:border-warning transition-all duration-300 relative overflow-hidden group">
@@ -265,11 +309,15 @@ const MisEvaluaciones = () => {
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
                       <i className="fas fa-user-tie text-gray-500"></i> 
-                      {cliente?.razonSocial || `${cliente?.nombre} ${cliente?.apellido}`}
+                      {cliente?.razonSocial || `${cliente?.nombre || ''} ${cliente?.apellido || ''}`.trim() || 'Cliente no encontrado'}
                     </h4>
                     <p className="text-sm text-gray-600 flex items-center gap-2">
                       Servicio - 
-                      <i className="fas fa-calendar text-xs text-gray-500 ml-2"></i> {new Date(servicio.fecha).toLocaleDateString()}
+                      <i className="fas fa-calendar text-xs text-gray-500 ml-2"></i> 
+                      {servicio.fechaProgramada || servicio.fechaCompletado || servicio.fecha 
+                        ? new Date(servicio.fechaProgramada || servicio.fechaCompletado || servicio.fecha).toLocaleDateString()
+                        : 'Sin fecha'
+                      }
                     </p>
                   </div>
                   <div className="text-right">
@@ -287,11 +335,14 @@ const MisEvaluaciones = () => {
                 
                 <div className="mb-4">
                   <div className="flex gap-2 mb-4 flex-wrap">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${servicio.tipo === 'preventivo' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'}`}>
-                      <i className={`fas fa-${servicio.tipo === 'preventivo' ? 'shield-alt' : 'tools'}`}></i> {servicio.tipo}
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${
+                      (servicio.tipoServicio === 'programado' || servicio.tipo === 'preventivo') ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'
+                    }`}>
+                      <i className={`fas fa-${(servicio.tipoServicio === 'programado' || servicio.tipo === 'preventivo') ? 'calendar-check' : 'tools'}`}></i> 
+                      {servicio.tipoServicio || servicio.tipo || 'Sin tipo'}
                     </span>
                     <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full flex items-center gap-1">
-                      <i className="fas fa-snowflake text-info"></i> {equipos.length} equipo{equipos.length !== 1 ? 's' : ''}
+                      <i className="fas fa-snowflake text-info"></i> {equipos?.length || 0} equipo{(equipos?.length || 0) !== 1 ? 's' : ''}
                     </span>
                   </div>
                   
@@ -321,7 +372,12 @@ const MisEvaluaciones = () => {
                 <div className="pt-4 border-t border-gray-200">
                   <span className="text-sm text-gray-600 flex items-center gap-1">
                     <i className="fas fa-check-circle text-success"></i> 
-                    Evaluado el {new Date(servicio.evaluacion.fecha).toLocaleDateString()}
+                    Evaluado el {servicio.evaluacion.fecha 
+                      ? new Date(servicio.evaluacion.fecha).toLocaleDateString()
+                      : servicio.fechaCompletado 
+                        ? new Date(servicio.fechaCompletado).toLocaleDateString()
+                        : 'Fecha no disponible'
+                    }
                   </span>
                 </div>
               </div>

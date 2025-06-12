@@ -38,10 +38,27 @@ export const DataProvider = ({ children }) => {
     console.log('🔄 === INICIANDO CARGA DE DATOS DEL BACKEND ===');
     console.log('🔌 useBackend:', useBackend);
     
-    if (!useBackend) {
-      console.log('⚠️ Backend deshabilitado, no se cargarán datos');
+    // Test de conectividad simple
+    try {
+      console.log('🔍 Probando conectividad con /api/servicios...');
+      const testResponse = await fetch('/api/servicios?limit=1');
+      console.log('🔍 Status de conectividad:', testResponse.status);
+      if (testResponse.ok) {
+        const testData = await testResponse.json();
+        console.log('🔍 Test exitoso - datos:', testData);
+      } else {
+        console.log('❌ Test fallido - status:', testResponse.status);
+      }
+    } catch (testError) {
+      console.log('❌ Error en test de conectividad:', testError);
+    }
+    
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      console.log('⚠️ No hay token disponible, no se cargarán datos');
       return;
     }
+    console.log('🚀 Iniciando carga con token disponible...');
     
     setIsLoading(true);
     try {
@@ -99,34 +116,71 @@ export const DataProvider = ({ children }) => {
       
       // Cargar servicios del backend
       console.log('📥 Cargando servicios...');
-      const serviciosResponse = await servicioService.getAll({ limit: 100 });
-      console.log('📊 Respuesta servicios:', serviciosResponse);
+      const serviciosResponse = await servicioService.getAll({ limit: 1000 });
+      console.log('📊 Respuesta servicios completa:', serviciosResponse);
+      console.log('📊 ¿Tiene datos?:', !!serviciosResponse.data);
+      console.log('📊 ¿Cuántos servicios?:', serviciosResponse.data?.length || 0);
+      if (serviciosResponse.data && serviciosResponse.data.length > 0) {
+        console.log('📊 Primer servicio completo:', JSON.stringify(serviciosResponse.data[0], null, 2));
+      }
       
       if (serviciosResponse.success && serviciosResponse.data) {
         console.log('✅ Servicios cargados:', serviciosResponse.data.length);
         console.log('📋 Muestra de servicios:', serviciosResponse.data.slice(0, 3));
-        setData(prev => ({
-          ...prev,
-          servicios: serviciosResponse.data
-        }));
+        console.log('📋 IDs de servicios:', serviciosResponse.data.map(s => ({ id: s.id, tipo: s.tipoServicio, estado: s.estado })));
+        console.log('🚀 ACTUALIZANDO Estado con servicios...');
+        setData(prev => {
+          const newData = {
+            ...prev,
+            servicios: serviciosResponse.data
+          };
+          console.log('💾 Estado actualizado - servicios:', newData.servicios.length);
+          console.log('💾 Estado actualizado - total datos:', {
+            servicios: newData.servicios.length,
+            clientes: newData.clientes.length,
+            equipos: newData.equipos.length,
+            tecnicos: newData.tecnicos.length
+          });
+          return newData;
+        });
       } else {
         console.error('❌ Error al cargar servicios:', serviciosResponse.message);
+        console.error('❌ Respuesta completa:', serviciosResponse);
       }
       
     } catch (error) {
-      console.error('❌ Error general cargando datos del backend:', error);
+      console.error('❌ ERROR GENERAL cargando datos del backend:');
+      console.error('  - Error completo:', error);
+      console.error('  - Error message:', error.message);
+      console.error('  - Error stack:', error.stack);
+      if (error.response) {
+        console.error('  - Response status:', error.response.status);
+        console.error('  - Response data:', error.response.data);
+      }
     } finally {
       setIsLoading(false);
       console.log('🏁 === CARGA DE DATOS FINALIZADA ===');
+      console.log('📊 Estado final de datos:');
+      console.log('  - Servicios:', data.servicios?.length || 0);
+      console.log('  - Clientes:', data.clientes?.length || 0);
+      console.log('  - Equipos:', data.equipos?.length || 0);
+      console.log('  - Técnicos:', data.tecnicos?.length || 0);
     }
   };
 
   // Cargar datos del backend al montar o cuando cambie useBackend
   useEffect(() => {
     console.log('🔄 DataContext useEffect - useBackend:', useBackend);
-    if (useBackend) {
+    
+    // 🔑 IMPORTANTE: Solo cargar datos si hay un token (usuario autenticado)
+    const token = sessionStorage.getItem('token');
+    console.log('🔑 Token disponible:', !!token);
+    
+    if (useBackend && token) {
       console.log('🚀 Iniciando carga de datos del backend...');
       loadBackendData();
+    } else if (useBackend && !token) {
+      console.log('⚠️ Backend habilitado pero sin token - esperando login...');
     } else {
       console.log('⚠️ Backend deshabilitado, no se cargarán datos del servidor');
       console.log('📊 Datos actuales en modo dummy:');
@@ -140,14 +194,27 @@ export const DataProvider = ({ children }) => {
   useEffect(() => {
     const handleUserLogin = (event) => {
       console.log('🎯 Evento de login detectado, recargando datos...', event.detail);
-      if (useBackend) {
-        loadBackendData();
-      }
+      console.log('🔄 Forzando carga de datos después del login...');
+      
+      // Verificar que hay token antes de cargar
+      setTimeout(() => {
+        const token = sessionStorage.getItem('token');
+        console.log('🔑 Token después del login:', !!token);
+        console.log('🔌 useBackend actual:', useBackend);
+        
+        // FORZAR carga si hay token, sin importar useBackend
+        if (token) {
+          console.log('✅ Token encontrado, FORZANDO carga de datos...');
+          loadBackendData();
+        } else {
+          console.log('❌ No hay token disponible');
+        }
+      }, 500);
     };
 
     window.addEventListener('userLoggedIn', handleUserLogin);
     return () => window.removeEventListener('userLoggedIn', handleUserLogin);
-  }, [useBackend, loadBackendData]);
+  }, [loadBackendData, useBackend]);
 
   // NO guardar en localStorage - solo usar backend
   useEffect(() => {

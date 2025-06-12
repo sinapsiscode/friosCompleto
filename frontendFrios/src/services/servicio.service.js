@@ -5,6 +5,8 @@ const servicioService = {
   getAll: async (params = {}) => {
     console.log('📋 === SERVICIO SERVICE GET ALL ===');
     console.log('🔍 Parámetros:', params);
+    console.log('🔑 Token en sessionStorage:', sessionStorage.getItem('token'));
+    console.log('👤 Usuario en sessionStorage:', sessionStorage.getItem('user'));
     
     try {
       const queryParams = new URLSearchParams();

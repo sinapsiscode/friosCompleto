@@ -15,6 +15,9 @@ import Estadisticas from './Admin/Estadisticas';
 import DiagramaGantt from './Admin/DiagramaGantt';
 import ConfigurarPerfil from './Admin/ConfigurarPerfil';
 
+// Test Pages
+import TestConexion from './TestConexion';
+
 // Tecnico Pages
 import TecnicoDashboard from './Tecnico/TecnicoDashboard';
 import MisServicios from './Tecnico/MisServicios';
@@ -48,6 +51,7 @@ const Dashboard = () => {
             <Route path="/tecnicos" element={<Tecnicos />} />
             <Route path="/clientes" element={<Clientes />} />
             <Route path="/repuestos" element={<RepuestosFormulario />} />
+            <Route path="/test" element={<TestConexion />} />
             <Route path="/estadisticas" element={<Estadisticas />} />
             <Route path="/diagrama" element={<DiagramaGantt />} />
             <Route path="/configurar-perfil" element={<ConfigurarPerfil />} />
