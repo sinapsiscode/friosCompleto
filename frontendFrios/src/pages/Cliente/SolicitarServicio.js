@@ -811,6 +811,7 @@ const SolicitarServicio = () => {
   const elementosPorPagina = 20;
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [clientesBackend, setClientesBackend] = useState([]);
+  const [misServicios, setMisServicios] = useState([]);
 
   // Cargar datos del backend al montar el componente
   useEffect(() => {
@@ -832,6 +833,16 @@ const SolicitarServicio = () => {
             // Establecer el cliente actual directamente
             setClienteActual(miInfoResponse.data);
             setClientesBackend([miInfoResponse.data]); // Solo para compatibilidad
+            
+            // Cargar servicios del cliente
+            try {
+              const servicios = await servicioService.getAll({ clienteId: miInfoResponse.data.id });
+              console.log('🔍 Servicios del cliente cargados:', servicios.data?.length || 0);
+              setMisServicios(servicios.data || []);
+            } catch (error) {
+              console.error('Error cargando servicios:', error);
+              setMisServicios([]);
+            }
           } else {
             console.log('⚠️ No se pudo cargar mi información');
             setClientesBackend([]);
@@ -922,14 +933,10 @@ const SolicitarServicio = () => {
     }
   }, [data.clientes, user, clienteActual]);
 
-  // Cálculos para clientes
-  const misServicios = clienteActual 
-    ? data.servicios.filter(s => s.clienteId === clienteActual.id)
-    : [];
-
+  // Filtrar servicios según los filtros seleccionados
   const serviciosFiltrados = misServicios.filter(servicio => {
     const cumpleFiltroEstado = filtroEstado === 'todos' || servicio.estado === filtroEstado;
-    const cumpleFiltroTipo = filtroTipo === 'todos' || servicio.tipo === filtroTipo;
+    const cumpleFiltroTipo = filtroTipo === 'todos' || servicio.tipoServicio === filtroTipo;
     return cumpleFiltroEstado && cumpleFiltroTipo;
   });
 
@@ -951,13 +958,13 @@ const SolicitarServicio = () => {
 
     const getEstadoClass = (estado) => {
       switch (estado) {
-        case 'completado':
+        case 'COMPLETADO':
           return 'bg-success/10 text-success';
-        case 'proceso':
+        case 'PROCESO':
           return 'bg-info/10 text-info';
-        case 'pendiente':
+        case 'PENDIENTE':
           return 'bg-warning/10 text-warning';
-        case 'cancelado':
+        case 'CANCELADO':
           return 'bg-danger/10 text-danger';
         default:
           return 'bg-gray-100 text-gray-600';
@@ -966,18 +973,17 @@ const SolicitarServicio = () => {
 
     const getEstadoTexto = (estado) => {
       switch (estado) {
-        case 'proceso': return 'En Proceso';
-        case 'completado': return 'Completado';
-        case 'pendiente': return 'Pendiente';
-        case 'cancelado': return 'Cancelado';
+        case 'PROCESO': return 'En Proceso';
+        case 'COMPLETADO': return 'Completado';
+        case 'PENDIENTE': return 'Pendiente';
+        case 'CANCELADO': return 'Cancelado';
         default: return estado;
       }
     };
 
-    const getTecnicoNombre = (tecnicoId) => {
-      if (!tecnicoId) return 'Sin asignar';
-      const tecnico = data.tecnicos.find(t => t.id === tecnicoId);
-      return tecnico ? `${tecnico.nombre} ${tecnico.apellido}` : 'Sin asignar';
+    const getTecnicoNombre = (servicio) => {
+      if (!servicio.tecnico) return 'Sin asignar';
+      return `${servicio.tecnico.nombre} ${servicio.tecnico.apellido}`;
     };
 
     return (
@@ -1077,17 +1083,17 @@ const SolicitarServicio = () => {
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{servicio.tipo === 'programado' ? 'Mantenimiento Programado' : 'Servicio Correctivo'}</div>
-                            <div className="text-sm text-gray-500">{formatearFecha(servicio.fecha)}</div>
+                            <div className="text-sm font-medium text-gray-900">{servicio.numeroOrden || servicio.id}</div>
+                            <div className="text-sm text-gray-500">{formatearFecha(servicio.fechaProgramada)}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          servicio.tipo === 'programado' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'
+                          servicio.tipoServicio === 'programado' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'
                         }`}>
-                          <i className={`fas ${servicio.tipo === 'programado' ? 'fa-calendar-check' : 'fa-tools'} mr-1`}></i>
-                          {servicio.tipo === 'programado' ? 'Programado' : 'Correctivo'}
+                          <i className={`fas ${servicio.tipoServicio === 'programado' ? 'fa-calendar-check' : 'fa-tools'} mr-1`}></i>
+                          {servicio.tipoServicio === 'programado' ? 'Programado' : 'Correctivo'}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -1096,10 +1102,10 @@ const SolicitarServicio = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getTecnicoNombre(servicio.tecnicoId)}
+                        {getTecnicoNombre(servicio)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(servicio.fecha).toLocaleDateString()}
+                        {new Date(servicio.fechaProgramada).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEstadoClass(servicio.estado)}`}>
@@ -1108,11 +1114,11 @@ const SolicitarServicio = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          servicio.prioridad === 'alta' ? 'bg-danger/10 text-danger' :
-                          servicio.prioridad === 'media' ? 'bg-warning/10 text-warning' :
+                          servicio.prioridad === 'ALTA' ? 'bg-danger/10 text-danger' :
+                          servicio.prioridad === 'MEDIA' ? 'bg-warning/10 text-warning' :
                           'bg-success/10 text-success'
                         }`}>
-                          {servicio.prioridad}
+                          {servicio.prioridad || 'BAJA'}
                         </span>
                       </td>
                     </tr>
