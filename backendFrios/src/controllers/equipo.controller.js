@@ -424,14 +424,23 @@ const equipoController = {
 
   // Obtener equipos por cliente
   getByCliente: async (req, res) => {
+    console.log('🔍 === GET EQUIPOS BY CLIENTE ===');
+    console.log('📋 Params:', req.params);
+    console.log('📋 Query:', req.query);
+    
     try {
       const { clienteId } = req.params;
       const { activo = true } = req.query;
+      
+      console.log('🆔 Cliente ID recibido:', clienteId);
+      console.log('🔄 Activo:', activo);
+      console.log('📊 Cliente ID parseado:', parseInt(clienteId));
+      console.log('📊 isActive filter:', activo === 'true');
 
       const equipos = await prisma.equipo.findMany({
         where: {
           clienteId: parseInt(clienteId),
-          isActive: activo === 'true'
+          isActive: activo === 'true' || activo === true
         },
         include: {
           servicios: {
@@ -442,12 +451,15 @@ const equipoController = {
         orderBy: { createdAt: 'desc' }
       });
 
+      console.log('✅ Equipos encontrados:', equipos.length);
+      console.log('📦 Equipos:', equipos);
+
       res.json({
         success: true,
         data: equipos
       });
     } catch (error) {
-      console.error('Error al obtener equipos del cliente:', error);
+      console.error('❌ Error al obtener equipos del cliente:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'

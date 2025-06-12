@@ -8,11 +8,13 @@ import { formatearFecha } from '../../utils/dateUtils';
 import servicioService from '../../services/servicio.service';
 import programacionService from '../../services/programacion.service';
 import clienteService from '../../services/cliente.service';
+import equipoService from '../../services/equipo.service';
 
 // Componente del formulario original (ahora extraído)
 const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, data, addItem, getNextId, user, clientesBackend, onReloadClientes }) => {
   const [showEquipoModal, setShowEquipoModal] = useState(false);
   const [clienteActual, setClienteActual] = useState(clienteActualProp);
+  const [equiposCliente, setEquiposCliente] = useState([]); // Equipos del cliente seleccionado
   const [formData, setFormData] = useState({
     tipo: '',
     restaurante: '',
@@ -38,9 +40,44 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
     setClienteActual(clienteActualProp);
   }, [clienteActualProp]);
 
-  const misEquipos = clienteActual 
-    ? data.equipos.filter(e => clienteActual.equipos.includes(e.id))
-    : [];
+  // Función para cargar equipos del cliente
+  const cargarEquiposCliente = async (clienteId) => {
+    if (!clienteId) {
+      setEquiposCliente([]);
+      return;
+    }
+
+    try {
+      console.log('🔄 Cargando equipos del cliente:', clienteId);
+      const response = await equipoService.getByCliente(clienteId);
+      console.log('📦 Respuesta equipos:', response);
+      
+      if (response.success) {
+        console.log('✅ Equipos cargados:', response.data?.length || 0);
+        setEquiposCliente(response.data || []);
+      } else {
+        console.error('❌ Error al cargar equipos:', response.message);
+        setEquiposCliente([]);
+      }
+    } catch (error) {
+      console.error('❌ Error cargando equipos:', error);
+      setEquiposCliente([]);
+    }
+  };
+
+  // Cargar equipos cuando cambie el cliente actual
+  useEffect(() => {
+    if (clienteActual?.id) {
+      cargarEquiposCliente(clienteActual.id);
+    } else {
+      setEquiposCliente([]);
+    }
+  }, [clienteActual]);
+
+  // Usar equiposCliente cargados directamente del backend
+  const misEquipos = equiposCliente;
+
+  console.log('❄️ Equipos del cliente seleccionado:', misEquipos.length, misEquipos);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -52,6 +89,11 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
       const nuevoCliente = clientes.find(c => c.id === parseInt(value));
       console.log('👤 Cliente seleccionado:', nuevoCliente);
       setClienteActual(nuevoCliente);
+      
+      // Cargar equipos del nuevo cliente
+      if (nuevoCliente?.id) {
+        cargarEquiposCliente(nuevoCliente.id);
+      }
       
       // Resetear campos relacionados con la ubicación y equipos
       setFormData(prev => ({

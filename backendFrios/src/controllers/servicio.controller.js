@@ -292,11 +292,7 @@ const servicioController = {
             estado: 'PENDIENTE',
             prioridad,
             observaciones: observaciones || null,
-            detalles: detalles || null,
-            // Campos de dirección del servicio
-            direccionServicio: direccionServicio || null,
-            ciudadServicio: ciudadServicio || null,
-            distritoServicio: distritoServicio || null
+            detalles: detalles || null
           }
         });
 

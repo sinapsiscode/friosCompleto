@@ -89,64 +89,6 @@ const Login = () => {
           </button>
         </form>
 
-        {/* Panel de credenciales de prueba */}
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Usuarios Disponibles:</h3>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">👨‍💼 Admin:</span>
-              <button 
-                type="button"
-                onClick={() => handleQuickAccess('admin/servicefrios', '123456')}
-                className="text-blue-600 hover:text-blue-800 font-mono bg-white px-2 py-1 rounded border"
-              >
-                admin/servicefrios : 123456
-              </button>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">🔧 Técnico:</span>
-              <button 
-                type="button"
-                onClick={() => handleQuickAccess('williams', '123456')}
-                className="text-indigo-600 hover:text-indigo-800 font-mono bg-white px-2 py-1 rounded border"
-              >
-                williams : 123456
-              </button>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">👥 Cliente:</span>
-              <button 
-                type="button"
-                onClick={() => handleQuickAccess('jaeden1', '123456')}
-                className="text-green-600 hover:text-green-800 font-mono bg-white px-2 py-1 rounded border"
-              >
-                jaeden1 : 123456
-              </button>
-            </div>
-            {!useBackend && (
-              <div className="flex justify-between items-center border-t pt-2 mt-2">
-                <span className="text-gray-600">📱 Fallback:</span>
-                <button 
-                  type="button"
-                  onClick={() => handleQuickAccess('cliente', 'cliente123')}
-                  className="text-purple-600 hover:text-purple-800 font-mono bg-white px-2 py-1 rounded border"
-                >
-                  cliente : cliente123
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="mt-3 pt-2 border-t text-xs">
-            <p className={`${useBackend ? 'text-green-600' : 'text-amber-600'}`}>
-              {useBackend ? '✅ Backend conectado - usando usuarios reales' : '⚠️ Backend desconectado - usando datos estáticos'}
-            </p>
-            {useBackend && (
-              <p className="text-gray-500 mt-1">
-                💡 Si las contraseñas no funcionan, ejecuta: <code className="bg-gray-200 px-1 rounded">node scripts/reset-passwords.js</code>
-              </p>
-            )}
-          </div>
-        </div>
 
 
         <div className="mt-6 text-center">

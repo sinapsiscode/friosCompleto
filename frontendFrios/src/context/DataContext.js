@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import { dummyData as initialData } from '../utils/dummyData';
 import clienteService from '../services/cliente.service';
 import tecnicoService from '../services/tecnico.service';
+import equipoService from '../services/equipo.service';
 import AuthContext from './AuthContext';
 
 export const DataContext = createContext();
@@ -71,7 +72,22 @@ export const DataProvider = ({ children }) => {
         console.log('⚠️ Usando datos dummy para técnicos');
       }
       
-      // TODO: Cargar otros datos (servicios, equipos, etc.) cuando tengamos los servicios
+      // Cargar equipos del backend
+      console.log('📥 Cargando equipos...');
+      const equiposResponse = await equipoService.getAll({ limit: 100 });
+      console.log('📊 Respuesta equipos:', equiposResponse);
+      
+      if (equiposResponse.success) {
+        console.log('✅ Equipos cargados:', equiposResponse.data?.length || 0);
+        console.log('📋 Muestra de equipos:', equiposResponse.data?.slice(0, 2));
+        setData(prev => ({
+          ...prev,
+          equipos: equiposResponse.data || []
+        }));
+      } else {
+        console.error('❌ Error al cargar equipos:', equiposResponse.message);
+        console.log('⚠️ Usando datos dummy para equipos');
+      }
       
     } catch (error) {
       console.error('❌ Error general cargando datos del backend:', error);
