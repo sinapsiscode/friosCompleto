@@ -24,6 +24,7 @@ const equipoRoutes = require('./src/routes/equipo.routes');
 const repuestoRoutes = require('./src/routes/repuesto.routes');
 const repuestoFormularioRoutes = require('./src/routes/repuestoFormulario.routes');
 const herramientaRoutes = require('./src/routes/herramienta.routes');
+const programacionRoutes = require('./src/routes/programacion.routes');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -35,7 +36,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // máximo 100 requests por ventana de tiempo
+  max: 500, // máximo 500 requests por ventana de tiempo (aumentado para desarrollo)
   message: {
     error: 'Demasiadas peticiones desde esta IP, intenta de nuevo en 15 minutos'
   }
@@ -113,6 +114,7 @@ app.use('/api/equipos', equipoRoutes);
 app.use('/api/repuestos', repuestoRoutes);
 app.use('/api/repuestos-formulario', repuestoFormularioRoutes);
 app.use('/api/herramientas', herramientaRoutes);
+app.use('/api/programaciones', programacionRoutes);
 
 // Ruta para 404
 app.use('*', (req, res) => {

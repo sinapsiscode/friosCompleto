@@ -1,6 +1,8 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -9,17 +11,17 @@ datasource db {
 }
 
 model Usuario {
-  id        String         @id @default(cuid())
-  username  String         @unique
-  email     String         @unique
-  password  String
-  role      Role           @default(CLIENTE)
-  isActive  Boolean        @default(true)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  admin     Administrador?
-  cliente   Cliente?
-  tecnico   Tecnico?
+  id             String          @id @default(cuid())
+  username       String          @unique
+  email          String          @unique
+  password       String
+  role           Role
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  administrador  Administrador?
+  tecnico        Tecnico?
+  cliente        Cliente?
 
   @@map("usuarios")
 }
@@ -29,37 +31,37 @@ model Administrador {
   userId       String   @unique
   nombre       String
   apellido     String
-  email        String   @unique
+  email        String
   telefono     String?
   direccion    String?
-  profileImage String?  // Foto de perfil del administrador
+  profileImage String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  usuario      Usuario  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usuario      Usuario  @relation(fields: [userId], references: [id])
 
   @@map("administradores")
 }
 
 model Tecnico {
-  id                 Int        @id @default(autoincrement())
-  userId             String     @unique
-  nombre             String
-  apellido           String
-  email              String     @unique
-  telefono           String?
-  direccion          String?
-  especialidad       String?
-  disponibilidad     String?    @default("DISPONIBLE")
-  isActive           Boolean    @default(true)
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
-  certificaciones    String?
-  distrito           String?
-  dni                String?    @unique
-  experiencia        Int?       @default(0)
-  profileImage       String?
-  serviciosAsignados Servicio[]
-  usuario            Usuario    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              Int        @id @default(autoincrement())
+  userId          String     @unique
+  nombre          String
+  apellido        String
+  email           String
+  telefono        String?
+  direccion       String?
+  especialidad    String?
+  certificaciones String?    @db.Text // JSON string
+  experiencia     Int?       // años de experiencia
+  dni             String?
+  distrito        String?
+  profileImage    String?
+  disponibilidad  String     @default("DISPONIBLE")
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  usuario         Usuario    @relation(fields: [userId], references: [id])
+  servicios       Servicio[]
 
   @@map("tecnicos")
 }
@@ -69,27 +71,28 @@ model Cliente {
   userId       String     @unique
   nombre       String
   apellido     String
-  email        String     @unique
+  email        String
   telefono     String?
   direccion    String?
-  tipo         String?    @default("persona") // "persona" | "empresa"
+  tipo         String     @default("persona") // persona o empresa
   razonSocial  String?    // Para empresas
-  ruc          String?    @unique // Para empresas
+  ruc          String?    // Para empresas
   dni          String?    // Para personas
-  sector       String?    // Para empresas
-  profileImage String?    // Foto de perfil/logo
+  sector       String?    // Sector/rubro de la empresa
+  profileImage String?
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-  usuario      Usuario    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usuario      Usuario    @relation(fields: [userId], references: [id])
   equipos      Equipo[]
   servicios    Servicio[]
+  programaciones Programacion[]
 
   @@map("clientes")
 }
 
 model Equipo {
-  id               Int        @id @default(autoincrement())
+  id               Int              @id @default(autoincrement())
   clienteId        Int
   nombre           String
   tipo             String
@@ -97,16 +100,16 @@ model Equipo {
   modelo           String?
   numeroSerie      String?
   ubicacion        String?
-  descripcion      String?
+  descripcion      String?          @db.Text
   fechaInstalacion DateTime?
-  fechaCompra      DateTime?
-  capacidad        String?
-  estadoOperativo  String?    @default("operativo")
-  imagenEquipo     String?
-  isActive         Boolean    @default(true)
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-  cliente          Cliente          @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  fechaCompra      DateTime?        // Nuevo campo
+  capacidad        String?          // Nuevo campo
+  estadoOperativo  String?          @default("operativo") // Nuevo campo
+  imagenEquipo     String?          // Nuevo campo
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  cliente          Cliente          @relation(fields: [clienteId], references: [id])
   servicios        Servicio[]       // Relación original (mantener para compatibilidad)
   serviciosEquipo  ServicioEquipo[] // Nueva relación many-to-many
 
@@ -128,6 +131,9 @@ model Servicio {
   prioridad       Prioridad         @default(MEDIA)
   observaciones   String?
   motivoCancelacion String?         // Nuevo: motivo si se cancela
+  direccionServicio String?         // Dirección donde se realizará el servicio
+  ciudadServicio    String?         // Ciudad del servicio
+  distritoServicio  String?         // Distrito del servicio
   isActive        Boolean           @default(true)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -138,6 +144,8 @@ model Servicio {
   equipo          Equipo?           @relation(fields: [equipoId], references: [id])
   tecnico         Tecnico?          @relation(fields: [tecnicoId], references: [id])
   equiposServicio ServicioEquipo[]  // Nuevo: relación many-to-many con equipos
+  programacion    Programacion?     @relation(fields: [programacionId], references: [id])
+  programacionId  Int?              // FK a programación
 
   @@map("servicios")
 }
@@ -153,6 +161,27 @@ model ServicioEquipo {
 
   @@unique([servicioId, equipoId])
   @@map("servicios_equipos")
+}
+
+// Nuevo modelo para programaciones
+model Programacion {
+  id              Int        @id @default(autoincrement())
+  clienteId       Int
+  frecuencia      String     // semanal, mensual, trimestral
+  fechaInicio     DateTime
+  fechaFin        DateTime
+  diasSemana      Json?      // Array de días para programación semanal
+  diaMes          Int?       // Día del mes para programación mensual
+  estado          String     @default("activa") // activa, pausada, finalizada
+  descripcion     String?
+  equipos         Json       // Array de IDs de equipos
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  cliente         Cliente    @relation(fields: [clienteId], references: [id])
+  servicios       Servicio[] // Servicios generados por esta programación
+
+  @@map("programaciones")
 }
 
 model Repuesto {
@@ -179,7 +208,6 @@ model Herramienta {
   descripcion String?
   marca       String?
   modelo      String?
-  categoria   String?
   estado      String?
   ubicacion   String?
   isActive    Boolean  @default(true)

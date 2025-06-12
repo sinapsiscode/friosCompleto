@@ -1,9 +1,13 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import { dummyData as initialData } from '../utils/dummyData';
+import clienteService from '../services/cliente.service';
+import tecnicoService from '../services/tecnico.service';
+import AuthContext from './AuthContext';
 
 export const DataContext = createContext();
 
 export const DataProvider = ({ children }) => {
+  const { useBackend } = useContext(AuthContext);
   const [data, setData] = useState(() => {
     const savedData = localStorage.getItem('frioServiceData');
     const baseData = savedData ? JSON.parse(savedData) : initialData;
@@ -16,10 +20,54 @@ export const DataProvider = ({ children }) => {
       administradores: baseData.administradores || initialData.administradores || []
     };
   });
+  const [isLoading, setIsLoading] = useState(false);
 
+  // Cargar datos del backend
+  const loadBackendData = async () => {
+    if (!useBackend) return;
+    
+    setIsLoading(true);
+    try {
+      // Cargar clientes del backend
+      const clientesResponse = await clienteService.getAll({ limit: 100 });
+      if (clientesResponse.success) {
+        setData(prev => ({
+          ...prev,
+          clientes: clientesResponse.data
+        }));
+      }
+      
+      // Cargar técnicos del backend
+      const tecnicosResponse = await tecnicoService.getAll({ limit: 100 });
+      if (tecnicosResponse.success) {
+        setData(prev => ({
+          ...prev,
+          tecnicos: tecnicosResponse.data
+        }));
+      }
+      
+      // TODO: Cargar otros datos (servicios, equipos, etc.) cuando tengamos los servicios
+      
+    } catch (error) {
+      console.error('Error cargando datos del backend:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Cargar datos del backend al montar o cuando cambie useBackend
   useEffect(() => {
-    localStorage.setItem('frioServiceData', JSON.stringify(data));
-  }, [data]);
+    if (useBackend) {
+      loadBackendData();
+    }
+  }, [useBackend]);
+
+  // Guardar en localStorage solo si no usamos backend
+  useEffect(() => {
+    if (!useBackend) {
+      localStorage.setItem('frioServiceData', JSON.stringify(data));
+    }
+  }, [data, useBackend]);
 
   const updateData = (key, newData) => {
     setData(prev => ({
@@ -109,7 +157,9 @@ export const DataProvider = ({ children }) => {
       deleteItem,
       getNextId,
       addEquipoToCliente,
-      removeEquipoFromCliente
+      removeEquipoFromCliente,
+      isLoading,
+      loadBackendData
     }}>
       {children}
     </DataContext.Provider>

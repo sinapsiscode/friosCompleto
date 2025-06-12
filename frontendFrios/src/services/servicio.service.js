@@ -62,6 +62,11 @@ const servicioService = {
         observaciones: servicioData.observaciones || null,
         prioridad: servicioData.prioridad.toUpperCase(),
         
+        // Datos de dirección
+        direccionServicio: servicioData.direccionServicio || null,
+        ciudadServicio: servicioData.ciudadServicio || null,
+        distritoServicio: servicioData.distritoServicio || null,
+        
         // Combinar fecha y hora en fechaProgramada
         fechaProgramada: servicioData.fecha && servicioData.hora ? 
           new Date(`${servicioData.fecha}T${servicioData.hora}:00`).toISOString() : null,
@@ -69,6 +74,9 @@ const servicioService = {
         // Manejar múltiples equipos - por ahora tomar el primero
         equipoId: servicioData.equipos && servicioData.equipos.length > 0 ? 
           parseInt(servicioData.equipos[0]) : null,
+        
+        // Relación con programación si existe
+        programacionId: servicioData.programacionId ? parseInt(servicioData.programacionId) : null,
         
         // Metadatos adicionales en detalles
         detalles: {

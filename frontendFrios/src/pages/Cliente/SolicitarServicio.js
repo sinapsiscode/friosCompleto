@@ -5,6 +5,8 @@ import Modal from '../../components/Common/Modal';
 import EquipoForm from '../../components/Forms/EquipoForm';
 import { showAlert } from '../../utils/sweetAlert';
 import { formatearFecha } from '../../utils/dateUtils';
+import servicioService from '../../services/servicio.service';
+import programacionService from '../../services/programacion.service';
 
 // Componente del formulario original (ahora extraído)
 const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, data, addItem, getNextId, user }) => {
