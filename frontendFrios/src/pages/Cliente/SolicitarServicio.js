@@ -782,8 +782,14 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
           clienteId={clienteActual?.id}
           onClose={() => {
             setShowEquipoModal(false);
-            // Recargar la página para mostrar el nuevo equipo
-            window.location.reload();
+          }}
+          onSave={(nuevoEquipo) => {
+            // Callback cuando se crea exitosamente
+            console.log('✅ Equipo creado exitosamente:', nuevoEquipo);
+            // Recargar solo los equipos del cliente en lugar de toda la página
+            if (clienteActual?.id) {
+              cargarEquiposCliente(clienteActual.id);
+            }
           }}
         />
       </Modal>

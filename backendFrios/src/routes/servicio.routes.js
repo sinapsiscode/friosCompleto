@@ -47,6 +47,12 @@ router.post('/:id/asignar-tecnico',
   servicioController.asignarTecnico
 );
 
+// POST /api/servicios/:id/iniciar - Iniciar servicio (por técnico)
+router.post('/:id/iniciar',
+  requireRole(['TECNICO', 'ADMIN']),
+  servicioController.iniciarServicio
+);
+
 // POST /api/servicios/:id/completar - Completar servicio
 router.post('/:id/completar',
   requireRole(['ADMIN', 'TECNICO']),

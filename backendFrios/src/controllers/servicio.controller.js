@@ -484,7 +484,8 @@ const servicioController = {
         data: {
           tecnicoId: parseInt(tecnicoId),
           fechaProgramada: fechaProgramada ? new Date(fechaProgramada) : servicio.fechaProgramada,
-          estado: 'PROCESO'
+          // Mantener el estado PENDIENTE cuando se asigna técnico
+          // El técnico puede iniciar manualmente después
         },
         include: {
           equipo: {
@@ -507,6 +508,77 @@ const servicioController = {
       });
     } catch (error) {
       console.error('Error al asignar técnico:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  },
+
+  // Iniciar servicio (por el técnico)
+  iniciarServicio: async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const servicio = await prisma.servicio.findUnique({
+        where: { id: id },
+        include: {
+          tecnico: {
+            select: { id: true, nombre: true, apellido: true }
+          }
+        }
+      });
+
+      if (!servicio) {
+        return res.status(404).json({
+          success: false,
+          message: 'Servicio no encontrado'
+        });
+      }
+
+      // Verificar que el servicio está asignado a un técnico
+      if (!servicio.tecnicoId) {
+        return res.status(400).json({
+          success: false,
+          message: 'El servicio debe tener un técnico asignado para poder iniciarse'
+        });
+      }
+
+      // Verificar que el servicio está en estado PENDIENTE
+      if (servicio.estado !== 'PENDIENTE') {
+        return res.status(400).json({
+          success: false,
+          message: `El servicio ya está en estado ${servicio.estado}`
+        });
+      }
+
+      const servicioActualizado = await prisma.servicio.update({
+        where: { id: id },
+        data: {
+          estado: 'PROCESO',
+          fechaInicio: new Date()
+        },
+        include: {
+          equipo: {
+            include: {
+              cliente: {
+                select: { id: true, nombre: true, apellido: true, razonSocial: true }
+              }
+            }
+          },
+          tecnico: {
+            select: { id: true, nombre: true, apellido: true, telefono: true }
+          }
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Servicio iniciado exitosamente',
+        data: servicioActualizado
+      });
+    } catch (error) {
+      console.error('Error al iniciar servicio:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'

@@ -195,10 +195,7 @@ const servicioService = {
     console.log('🆔 Servicio ID:', servicioId);
     
     try {
-      const response = await api.put(`/api/servicios/${servicioId}`, {
-        estado: 'PROCESO',
-        fechaInicio: new Date().toISOString()
-      });
+      const response = await api.post(`/api/servicios/${servicioId}/iniciar`);
       console.log('✅ Servicio iniciado exitosamente:', response.data);
       return response.data;
     } catch (error) {
