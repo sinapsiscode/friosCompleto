@@ -213,7 +213,7 @@ const ClienteForm = ({ cliente, onClose, onSuccess }) => {
           // Comparar cada campo y solo incluir los que han cambiado
           Object.keys(formData).forEach(key => {
             // Excluir campos que no queremos actualizar en edición
-            if (key === 'equipos' || key === 'id') return;
+            if (key === 'id') return; // Solo excluir ID, mantener equipos
             
             const newValue = formData[key] || '';
             const originalValue = originalData[key] || '';
@@ -231,7 +231,8 @@ const ClienteForm = ({ cliente, onClose, onSuccess }) => {
           clienteData = {
             ...formData,
             username: formData.username || formData.email.split('@')[0], // Generar username si no existe
-            password: formData.password || '123456' // Contraseña por defecto si no se proporciona
+            password: formData.password || '123456', // Contraseña por defecto si no se proporciona
+            equipos: formData.equipos || [] // Asegurar que equipos sea un array
           };
         }
         

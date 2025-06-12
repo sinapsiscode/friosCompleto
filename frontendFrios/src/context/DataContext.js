@@ -24,34 +24,58 @@ export const DataProvider = ({ children }) => {
 
   // Cargar datos del backend
   const loadBackendData = async () => {
-    if (!useBackend) return;
+    console.log('🔄 === INICIANDO CARGA DE DATOS DEL BACKEND ===');
+    console.log('🔌 useBackend:', useBackend);
+    
+    if (!useBackend) {
+      console.log('⚠️ Backend deshabilitado, no se cargarán datos');
+      return;
+    }
     
     setIsLoading(true);
     try {
       // Cargar clientes del backend
+      console.log('📥 Cargando clientes...');
       const clientesResponse = await clienteService.getAll({ limit: 100 });
-      if (clientesResponse.success) {
-        setData(prev => ({
-          ...prev,
-          clientes: clientesResponse.data
-        }));
+      console.log('📊 Respuesta clientes:', clientesResponse);
+      
+      if (clientesResponse.success && clientesResponse.data) {
+        console.log('✅ Clientes cargados:', clientesResponse.data.length);
+        console.log('📋 Muestra de clientes:', clientesResponse.data.slice(0, 3));
+        setData(prev => {
+          const newData = {
+            ...prev,
+            clientes: clientesResponse.data
+          };
+          console.log('💾 Estado actualizado con clientes:', newData.clientes.length);
+          return newData;
+        });
+      } else {
+        console.error('❌ Error al cargar clientes:', clientesResponse.message);
       }
       
       // Cargar técnicos del backend
+      console.log('📥 Cargando técnicos...');
       const tecnicosResponse = await tecnicoService.getAll({ limit: 100 });
+      console.log('📊 Respuesta técnicos:', tecnicosResponse);
+      
       if (tecnicosResponse.success) {
+        console.log('✅ Técnicos cargados:', tecnicosResponse.data?.length || 0);
         setData(prev => ({
           ...prev,
-          tecnicos: tecnicosResponse.data
+          tecnicos: tecnicosResponse.data || []
         }));
+      } else {
+        console.error('❌ Error al cargar técnicos:', tecnicosResponse.message);
       }
       
       // TODO: Cargar otros datos (servicios, equipos, etc.) cuando tengamos los servicios
       
     } catch (error) {
-      console.error('Error cargando datos del backend:', error);
+      console.error('❌ Error general cargando datos del backend:', error);
     } finally {
       setIsLoading(false);
+      console.log('🏁 === CARGA DE DATOS FINALIZADA ===');
     }
   };
 

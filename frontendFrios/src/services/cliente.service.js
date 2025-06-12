@@ -4,16 +4,26 @@ const clienteService = {
   // Obtener todos los clientes
   async getAll(params = {}) {
     try {
+      console.log('🔄 Cliente Service - Obteniendo clientes con params:', params);
       const response = await api.get('/api/clientes', { params });
+      console.log('📡 Respuesta del servidor:', response);
+      console.log('📦 Datos recibidos:', response.data);
+      
+      // El backend devuelve { success: true, data: [...], pagination: {...} }
+      const clientes = response.data.data || [];
+      console.log('✅ Clientes procesados:', clientes.length);
+      
       return {
         success: true,
-        data: response.data.data,
+        data: clientes,
         pagination: response.data.pagination
       };
     } catch (error) {
+      console.error('❌ Error en cliente.service.getAll:', error);
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener clientes'
+        message: error.response?.data?.message || 'Error al obtener clientes',
+        data: [] // Siempre devolver un array vacío en caso de error
       };
     }
   },
@@ -46,7 +56,12 @@ const clienteService = {
       // Agregar datos del cliente
       Object.keys(clienteData).forEach(key => {
         if (clienteData[key] !== null && clienteData[key] !== undefined) {
-          formData.append(key, clienteData[key]);
+          // Manejar arrays especialmente para FormData
+          if (Array.isArray(clienteData[key])) {
+            formData.append(key, JSON.stringify(clienteData[key]));
+          } else {
+            formData.append(key, clienteData[key]);
+          }
           console.log(`➕ FormData: ${key} = ${clienteData[key]}`);
         }
       });
@@ -104,7 +119,12 @@ const clienteService = {
       // Agregar datos del cliente
       Object.keys(clienteData).forEach(key => {
         if (clienteData[key] !== null && clienteData[key] !== undefined) {
-          formData.append(key, clienteData[key]);
+          // Manejar arrays especialmente para FormData
+          if (Array.isArray(clienteData[key])) {
+            formData.append(key, JSON.stringify(clienteData[key]));
+          } else {
+            formData.append(key, clienteData[key]);
+          }
           console.log(`➕ FormData: ${key} = ${clienteData[key]}`);
         }
       });

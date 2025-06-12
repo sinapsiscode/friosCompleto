@@ -132,12 +132,26 @@ const clienteController = {
         apellido, 
         telefono, 
         direccion, 
+        ciudad,
+        distrito,
         tipo,
         razonSocial,
         ruc,
         dni,
-        sector
+        sector,
+        equipos
       } = req.body;
+
+      // Parsear equipos si viene como string JSON
+      let equiposArray = [];
+      if (equipos) {
+        try {
+          equiposArray = typeof equipos === 'string' ? JSON.parse(equipos) : equipos;
+        } catch (e) {
+          console.log('⚠️ Error parseando equipos, usando array vacío');
+          equiposArray = [];
+        }
+      }
 
       console.log('🔍 Verificando si usuario/email ya existen...');
       // Verificar si el usuario ya existe
@@ -182,6 +196,8 @@ const clienteController = {
             email,
             telefono: telefono || null,
             direccion: direccion || null,
+            ciudad: ciudad || null,
+            distrito: distrito || null,
             tipo: tipo || 'persona',
             razonSocial: razonSocial || null,
             ruc: ruc || null,

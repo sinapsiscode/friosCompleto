@@ -7,9 +7,10 @@ import { showAlert } from '../../utils/sweetAlert';
 import { formatearFecha } from '../../utils/dateUtils';
 import servicioService from '../../services/servicio.service';
 import programacionService from '../../services/programacion.service';
+import clienteService from '../../services/cliente.service';
 
 // Componente del formulario original (ahora extraído)
-const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, data, addItem, getNextId, user }) => {
+const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, data, addItem, getNextId, user, clientesBackend, onReloadClientes }) => {
   const [showEquipoModal, setShowEquipoModal] = useState(false);
   const [clienteActual, setClienteActual] = useState(clienteActualProp);
   const [formData, setFormData] = useState({
@@ -47,7 +48,8 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
     
     // Si se selecciona un cliente diferente, actualizar clienteActual y resetear ubicación
     if (name === 'clienteSeleccionado') {
-      const nuevoCliente = data.clientes.find(c => c.id === parseInt(value));
+      const clientes = clientesBackend || data.clientes || [];
+      const nuevoCliente = clientes.find(c => c.id === parseInt(value));
       console.log('👤 Cliente seleccionado:', nuevoCliente);
       setClienteActual(nuevoCliente);
       
@@ -95,7 +97,7 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     console.log('🔵 === INICIANDO GUARDADO DE SOLICITUD DE SERVICIO ===');
@@ -168,19 +170,15 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
     }
     console.log('📍 Info de dirección final:', ubicacionInfo);
 
-    const nuevaSolicitud = {
-      id: getNextId('servicios'),
+    // Preparar datos para enviar a la API
+    const servicioData = {
       clienteId: clienteActual.id,
-      tecnicoId: null, // Se asignará después
-      fecha: formData.fechaPreferida || formData.programacion.fechaInicio || new Date().toISOString().split('T')[0],
-      hora: formData.horaPreferida || '09:00',
       tipo: formData.tipo,
-      estado: 'pendiente',
       descripcion: formData.descripcion,
       equipos: formData.equiposSeleccionados,
       prioridad: formData.urgencia,
-      observaciones: '',
-      fotos: [],
+      fecha: formData.fechaPreferida || formData.programacion.fechaInicio || new Date().toISOString().split('T')[0],
+      hora: formData.horaPreferida || '09:00',
       ...ubicacionInfo,
       // Agregar información del solicitante para administradores y técnicos
       ...((user.userType === 'admin' || user.userType === 'tecnico') && {
@@ -201,45 +199,69 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
       })
     };
 
-    console.log('📄 === SOLICITUD DE SERVICIO A GUARDAR ===');
-    console.log('🆔 ID:', nuevaSolicitud.id);
-    console.log('👤 Cliente ID:', nuevaSolicitud.clienteId);
-    console.log('📅 Fecha:', nuevaSolicitud.fecha, '| Fuente:', {
-      fechaPreferida: formData.fechaPreferida,
-      fechaInicio: formData.programacion.fechaInicio,
-      tipo: formData.tipo
-    });
-    console.log('🕐 Hora:', nuevaSolicitud.hora);
-    console.log('📍 Dirección:', {
-      direccionServicio: nuevaSolicitud.direccionServicio,
-      ciudadServicio: nuevaSolicitud.ciudadServicio,
-      distritoServicio: nuevaSolicitud.distritoServicio
-    });
-    console.log('🔧 Equipos seleccionados:', nuevaSolicitud.equipos);
-    console.log('📋 Objeto completo de solicitud:', nuevaSolicitud);
+    console.log('📄 === DATOS A ENVIAR A LA API ===');
+    console.log('📋 servicioData:', servicioData);
 
-    addItem('servicios', nuevaSolicitud);
-    console.log('✅ Solicitud guardada exitosamente');
+    try {
+      // Enviar a la API del backend
+      const response = await servicioService.create(servicioData);
+      console.log('✅ Servicio creado en la base de datos:', response);
 
-    // Si es servicio programado, crear la programación
-    if (formData.tipo === 'programado' && formData.programacion.fechaInicio && formData.programacion.fechaFin) {
-      const nuevaProgramacion = {
-        id: getNextId('programaciones'),
+      // También agregar al contexto local para sincronización inmediata
+      const nuevaSolicitud = {
+        id: response.data.id || response.data.numeroOrden,
         clienteId: clienteActual.id,
-        tipo: formData.programacion.frecuencia,
-        fechaInicio: formData.programacion.fechaInicio,
-        fechaFin: formData.programacion.fechaFin,
-        diasProgramados: [new Date(formData.programacion.fechaInicio).getDate()],
-        equipos: formData.equiposSeleccionados,
-        estado: 'activa'
+        tecnicoId: null,
+        fecha: servicioData.fecha,
+        hora: servicioData.hora,
+        tipo: servicioData.tipo,
+        estado: 'pendiente',
+        descripcion: servicioData.descripcion,
+        equipos: servicioData.equipos,
+        prioridad: servicioData.prioridad,
+        observaciones: '',
+        fotos: [],
+        ...ubicacionInfo,
+        numeroOrden: response.data.numeroOrden
       };
-      addItem('programaciones', nuevaProgramacion);
-    }
+      
+      addItem('servicios', nuevaSolicitud);
 
-    console.log('🎉 === FIN DEL PROCESO DE GUARDADO ===');
-    
-    showAlert('Solicitud de orden de servicio enviada exitosamente', 'success');
-    onClose();
+      // Si es servicio programado, crear la programación
+      if (formData.tipo === 'programado' && formData.programacion.fechaInicio && formData.programacion.fechaFin) {
+        try {
+          const programacionData = {
+            clienteId: clienteActual.id,
+            frecuencia: formData.programacion.frecuencia,
+            fechaInicio: formData.programacion.fechaInicio,
+            fechaFin: formData.programacion.fechaFin,
+            equipos: formData.equiposSeleccionados,
+            estado: 'activa'
+          };
+          
+          // También crear programación en la API si tienes el servicio
+          console.log('📅 Creando programación:', programacionData);
+          
+          // Por ahora agregar al contexto local
+          const nuevaProgramacion = {
+            id: getNextId('programaciones'),
+            ...programacionData,
+            diasProgramados: [new Date(formData.programacion.fechaInicio).getDate()]
+          };
+          addItem('programaciones', nuevaProgramacion);
+        } catch (progError) {
+          console.warn('⚠️ Error al crear programación:', progError);
+        }
+      }
+
+      console.log('🎉 === SERVICIO GUARDADO EXITOSAMENTE EN LA BASE DE DATOS ===');
+      showAlert('Solicitud de orden de servicio enviada exitosamente', 'success');
+      onClose();
+      
+    } catch (error) {
+      console.error('❌ Error al crear servicio:', error);
+      showAlert('Error al enviar la solicitud. Por favor intente nuevamente.', 'error');
+    }
   };
 
   return (
@@ -260,10 +282,27 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
               {/* Selector de cliente para administradores y técnicos */}
               {(user.userType === 'admin' || user.userType === 'tecnico' || user.role === 'ADMIN' || user.role === 'TECNICO') && (
                 <div className="flex flex-col col-span-full">
-                  <label htmlFor="clienteSeleccionado" className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
-                    <i className="fas fa-user text-gray-400 text-sm"></i>
-                    Cliente *
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label htmlFor="clienteSeleccionado" className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                      <i className="fas fa-user text-gray-400 text-sm"></i>
+                      Cliente *
+                    </label>
+                    {(!clientesBackend || clientesBackend.length === 0) && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          console.log('🔄 Recargando clientes...');
+                          if (onReloadClientes) {
+                            await onReloadClientes();
+                          }
+                        }}
+                        className="text-sm text-primary hover:text-primary-dark flex items-center gap-1"
+                      >
+                        <i className="fas fa-sync-alt"></i>
+                        Recargar clientes
+                      </button>
+                    )}
+                  </div>
                   <div className="relative">
                     <select 
                       id="clienteSeleccionado"
@@ -274,11 +313,18 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
                       required
                     >
                       <option value="">Seleccione un cliente</option>
-                      {data.clientes.map(cliente => (
-                        <option key={cliente.id} value={cliente.id}>
-                          {cliente.razonSocial || `${cliente.nombre} ${cliente.apellido}`}
-                        </option>
-                      ))}
+                      {console.log('🔍 Renderizando clientes en dropdown:', clientesBackend)}
+                      {(!clientesBackend || clientesBackend.length === 0) && (
+                        <option value="" disabled>No hay clientes disponibles - Haga clic en "Recargar clientes"</option>
+                      )}
+                      {(clientesBackend || []).map(cliente => {
+                        console.log('📌 Cliente:', cliente.id, cliente.nombre, cliente.apellido);
+                        return (
+                          <option key={cliente.id} value={cliente.id}>
+                            {cliente.razonSocial || `${cliente.nombre} ${cliente.apellido}`}
+                          </option>
+                        );
+                      })}
                     </select>
                     <i className="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                   </div>
@@ -671,22 +717,87 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
 };
 
 const SolicitarServicio = () => {
-  const { data, addItem, getNextId } = useContext(DataContext);
-  const { user } = useContext(AuthContext);
+  const { data, addItem, getNextId, loadBackendData } = useContext(DataContext);
+  const { user, useBackend } = useContext(AuthContext);
   const [clienteActual, setClienteActual] = useState(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [paginaActual, setPaginaActual] = useState(1);
   const elementosPorPagina = 20;
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [clientesBackend, setClientesBackend] = useState([]);
+
+  // Cargar datos del backend al montar el componente
+  useEffect(() => {
+    const loadData = async () => {
+      console.log('🔄 === SOLICITAR SERVICIO - CARGA DE DATOS ===');
+      console.log('👤 Tipo de usuario:', user?.userType || user?.role);
+      
+      // Cargar clientes del backend directamente
+      try {
+        console.log('🔄 Cargando clientes desde el backend...');
+        setIsLoadingData(true);
+        const clientesResponse = await clienteService.getAll({ limit: 100 });
+        
+        if (clientesResponse.success && clientesResponse.data) {
+          console.log('✅ Clientes cargados desde backend:', clientesResponse.data.length);
+          setClientesBackend(clientesResponse.data);
+        } else {
+          console.log('⚠️ No se pudieron cargar clientes del backend');
+          setClientesBackend([]);
+        }
+      } catch (error) {
+        console.error('❌ Error cargando clientes:', error);
+        setClientesBackend([]);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    
+    loadData();
+  }, []);
 
   useEffect(() => {
+    console.log('🔍 === DIAGNÓSTICO DE CLIENTE ===');
+    console.log('👤 Usuario actual:', user);
+    console.log('📊 Tipo de usuario:', user?.userType);
+    console.log('🔑 Username:', user?.username);
+    console.log('👥 Clientes disponibles (data):', data.clientes);
+    console.log('👥 Clientes disponibles (backend):', clientesBackend);
+    console.log('🆔 ID del perfil:', user?.profile?.id);
+    
     if (user.userType === 'admin' || user.userType === 'tecnico') {
       // Para administradores y técnicos, no hay cliente automático
       setClienteActual(null);
     } else {
-      // Para clientes, buscar por usuario
-      const cliente = data.clientes.find(c => c.usuario === user.username);
+      // Para clientes, buscar por usuario (considerar estructura de backend)
+      console.log('🔎 Buscando cliente para:', user?.username);
+      
+      // Buscar cliente de varias formas
+      const cliente = data.clientes.find(c => {
+        console.log('📌 Verificando cliente:', c);
+        console.log('  - c.usuario:', c.usuario);
+        console.log('  - c.usuario?.username:', c.usuario?.username);
+        console.log('  - c.userId:', c.userId);
+        console.log('  - c.id:', c.id);
+        console.log('  - user.id:', user?.id);
+        console.log('  - user.profile?.id:', user?.profile?.id);
+        
+        const match1 = c.usuario === user.username; // Para datos estáticos
+        const match2 = c.usuario?.username === user.username; // Para backend con relación usuario
+        const match3 = c.id === user.profile?.id; // Por ID del perfil
+        const match4 = c.userId === user.id; // Por userId (clave foránea)
+        
+        console.log('  ✓ Match1 (estático):', match1);
+        console.log('  ✓ Match2 (backend username):', match2);
+        console.log('  ✓ Match3 (backend profile id):', match3);
+        console.log('  ✓ Match4 (backend userId):', match4);
+        
+        return match1 || match2 || match3 || match4;
+      });
+      
+      console.log('✅ Cliente encontrado:', cliente);
       setClienteActual(cliente);
     }
   }, [data.clientes, user]);
@@ -757,6 +868,20 @@ const SolicitarServicio = () => {
               <i className="fas fa-clipboard-list text-info"></i> Orden de Servicio
             </h1>
             <p className="text-lg text-gray-600">Gestiona tus órdenes de servicio</p>
+            {!clienteActual && (
+              <div className="mt-2 p-3 bg-yellow-100 border border-yellow-400 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <i className="fas fa-exclamation-triangle mr-2"></i>
+                  No se encontró información del cliente. 
+                  <button 
+                    onClick={() => loadBackendData()}
+                    className="ml-2 text-yellow-900 underline hover:no-underline"
+                  >
+                    Recargar datos
+                  </button>
+                </p>
+              </div>
+            )}
           </div>
           <button 
             onClick={() => setShowFormModal(true)}
@@ -979,8 +1104,29 @@ const SolicitarServicio = () => {
             addItem={addItem}
             getNextId={getNextId}
             user={user}
+            clientesBackend={clientesBackend}
+            onReloadClientes={async () => {
+              const response = await clienteService.getAll({ limit: 100 });
+              if (response.success) {
+                setClientesBackend(response.data);
+              }
+            }}
           />
         </Modal>
+      </div>
+    );
+  }
+
+  // Mostrar spinner mientras se cargan los datos
+  if (isLoadingData) {
+    return (
+      <div className="w-full max-w-7xl mx-auto p-6 animate-fadeIn">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <i className="fas fa-spinner fa-spin text-4xl text-primary mb-4"></i>
+            <p className="text-gray-600">Cargando datos...</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -994,6 +1140,13 @@ const SolicitarServicio = () => {
       addItem={addItem}
       getNextId={getNextId}
       user={user}
+      clientesBackend={clientesBackend}
+      onReloadClientes={async () => {
+        const response = await clienteService.getAll({ limit: 100 });
+        if (response.success) {
+          setClientesBackend(response.data);
+        }
+      }}
     />
   );
 };

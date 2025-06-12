@@ -133,23 +133,29 @@ const schemas = {
     }),
     telefono: Joi.string().optional(),
     direccion: Joi.string().optional(),
+    ciudad: Joi.string().optional(),
+    distrito: Joi.string().optional(),
     tipo: Joi.string().valid('persona', 'empresa').optional(),
     razonSocial: Joi.string().when('tipo', {
       is: 'empresa',
       then: Joi.string().required(),
-      otherwise: Joi.string().optional()
+      otherwise: Joi.string().optional().allow('')
     }),
     ruc: Joi.string().when('tipo', {
       is: 'empresa',
       then: Joi.string().pattern(/^[0-9]{11}$/).required(),
-      otherwise: Joi.string().optional()
+      otherwise: Joi.string().optional().allow('')
     }),
     dni: Joi.string().when('tipo', {
       is: 'persona',
       then: Joi.string().pattern(/^[0-9]{8}$/).optional(),
       otherwise: Joi.string().optional()
     }),
-    sector: Joi.string().optional()
+    sector: Joi.string().optional(),
+    equipos: Joi.alternatives().try(
+      Joi.array(),
+      Joi.string().allow('')
+    ).optional() // Permitir array o string vacío
   }),
 
   // Técnicos

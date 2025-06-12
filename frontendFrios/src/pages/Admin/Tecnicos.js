@@ -4,6 +4,7 @@ import AuthContext from '../../context/AuthContext';
 import Modal from '../../components/Common/Modal';
 import TecnicoForm from '../../components/Forms/TecnicoForm';
 import tecnicoService from '../../services/tecnico.service';
+import { ProfileImage } from '../../utils/imageUtils';
 
 const Tecnicos = () => {
   const { data } = useContext(DataContext);
@@ -270,6 +271,13 @@ const Tecnicos = () => {
             return (
               <div key={tecnico.id} className="bg-white rounded-3xl shadow-md p-6 border border-gray-100 transition-all duration-400 cubic-bezier(0.4,0,0.2,1) relative overflow-hidden flex flex-col min-h-[400px] group hover:transform hover:-translate-y-2 hover:scale-[1.02] hover:shadow-xl hover:border-warning/20 before:content-[''] before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-gradient-to-r before:from-warning before:to-warning-light before:opacity-0 before:transition-all before:duration-300 hover:before:opacity-100">
                 <div className="flex items-start relative pb-6 border-b border-gray-100">
+                  <ProfileImage 
+                    filename={tecnico.profileImage}
+                    userType="tecnicos"
+                    alt={`${tecnico.nombre} ${tecnico.apellido}`}
+                    className="w-16 h-16 rounded-2xl object-cover border-2 border-gray-200 mr-4"
+                    fallbackIcon="fa-user"
+                  />
                   <div className="flex-1 flex flex-col gap-3 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 m-0 leading-tight">{tecnico.nombre} {tecnico.apellido}</h3>
                     <div className="flex items-center gap-3 flex-wrap">
@@ -368,23 +376,13 @@ const Tecnicos = () => {
                   <tr key={tecnico.id} className="transition-all duration-200 border-b border-gray-100 hover:bg-gray-50 last:border-b-0">
                     <td className="py-4 px-6 border-b border-gray-100 text-gray-800 text-base">
                       <div className="flex items-center gap-3">
-                        {tecnico.profileImage ? (
-                          <img 
-                            src={`${process.env.REACT_APP_API_URL || 'http://localhost:2001'}/uploads/${tecnico.profileImage}`} 
-                            alt={`${tecnico.nombre} ${tecnico.apellido}`} 
-                            className="w-10 h-10 rounded-2xl object-cover border-2 border-gray-200"
-                            onError={(e) => {
-                              console.log('❌ Error cargando imagen técnico:', e.target.src);
-                              e.target.style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-base font-bold text-white" style={{ 
-                            background: getAvatarColor(tecnico.id)
-                          }}>
-                            <span>{getInitials(tecnico.nombre, tecnico.apellido)}</span>
-                          </div>
-                        )}
+                        <ProfileImage 
+                          filename={tecnico.profileImage}
+                          userType="tecnicos"
+                          alt={`${tecnico.nombre} ${tecnico.apellido}`}
+                          className="w-10 h-10 rounded-2xl object-cover border-2 border-gray-200"
+                          fallbackIcon="fa-user"
+                        />
                         <span>{tecnico.nombre} {tecnico.apellido}</span>
                       </div>
                     </td>
@@ -469,9 +467,13 @@ const Tecnicos = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold text-white" style={{ background: getAvatarColor(historyTecnico.id) }}>
-                    <span>{getInitials(historyTecnico.nombre, historyTecnico.apellido)}</span>
-                  </div>
+                  <ProfileImage 
+                    filename={historyTecnico.profileImage}
+                    userType="tecnicos"
+                    alt={`${historyTecnico.nombre} ${historyTecnico.apellido}`}
+                    className="w-12 h-12 rounded-xl object-cover"
+                    fallbackIcon="fa-user"
+                  />
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">
                       Historial de {historyTecnico.nombre} {historyTecnico.apellido}
