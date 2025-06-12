@@ -14,18 +14,36 @@ const ClienteDashboard = () => {
   
   useEffect(() => {
     const cliente = data.clientes.find(c => c.usuario === user.username);
-    setClienteActual(cliente);
+    if (cliente) {
+      setClienteActual(cliente);
+    } else {
+      // Usar datos estáticos si no se encuentra cliente
+      const clienteEstatico = {
+        id: 'cliente-demo',
+        usuario: user?.username || 'cliente',
+        nombre: 'Cliente',
+        apellido: 'Demo',
+        razonSocial: 'Empresa Demo S.A.C.',
+        equipos: []
+      };
+      setClienteActual(clienteEstatico);
+    }
   }, [data.clientes, user]);
 
+  // Mostrar loading mientras se establece el cliente
   if (!clienteActual) {
-    return <div>Cargando...</div>;
+    return <div className="p-6">Cargando...</div>;
   }
 
+  // Usar datos del contexto
+  const misServicios = data.servicios.filter(s => s.clienteId === clienteActual?.id);
+  const misEquipos = data.equipos.filter(e => clienteActual?.equipos?.includes(e.id));
+  const tecnicos = data.tecnicos;
+
   // Estadísticas del cliente
-  const misServicios = data.servicios.filter(s => s.clienteId === clienteActual.id);
   const serviciosActivos = misServicios.filter(s => s.estado !== 'completado').length;
   const serviciosCompletados = misServicios.filter(s => s.estado === 'completado').length;
-  const totalEquipos = clienteActual.equipos?.length || 0;
+  const totalEquipos = misEquipos.length;
   const serviciosPendientesEvaluacion = misServicios.filter(s => s.estado === 'completado' && !s.evaluacion).length;
 
   // Próximos servicios - ordenados del más reciente al más antiguo
@@ -33,10 +51,6 @@ const ClienteDashboard = () => {
     .filter(s => s.estado === 'pendiente')
     .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
     .slice(0, 5);
-
-
-  // Equipos del cliente
-  const misEquipos = data.equipos.filter(e => clienteActual.equipos?.includes(e.id));
 
   return (
     <div className="w-full min-h-screen p-4 lg:p-6 animate-fadeIn">
@@ -140,7 +154,7 @@ const ClienteDashboard = () => {
           {proximosServicios.length > 0 ? (
             <div className="flex flex-col gap-4 lg:gap-6">
               {proximosServicios.map(servicio => {
-                const tecnico = data.tecnicos.find(t => t.id === servicio.tecnicoId);
+                const tecnico = tecnicos.find(t => t.id === servicio.tecnicoId);
                 return (
                   <div key={servicio.id} className="flex flex-col sm:flex-row gap-4 lg:gap-6 relative animate-fadeIn">
                     <div className="flex sm:flex-col items-center sm:items-center flex-shrink-0">
@@ -214,7 +228,7 @@ const ClienteDashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mt-4 lg:mt-6">
           {misEquipos.map(equipo => {
             const ultimoServicio = misServicios
-              .filter(s => s.equipos.includes(equipo.id) && s.estado === 'completado')
+              .filter(s => s.equipos?.includes(equipo.id) && s.estado === 'completado')
               .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
             
             return (

@@ -48,6 +48,11 @@ export const AuthProvider = ({ children }) => {
         if (result.success) {
           setUser(result.user);
           console.log('✅ Login exitoso con backend:', result.user);
+          
+          // Disparar evento para que DataContext recargue los datos
+          console.log('🎯 Disparando evento userLoggedIn para recargar datos...');
+          window.dispatchEvent(new CustomEvent('userLoggedIn', { detail: result.user }));
+          
           return { success: true, user: result.user };
         } else {
           console.log('❌ Login fallido:', result.message);

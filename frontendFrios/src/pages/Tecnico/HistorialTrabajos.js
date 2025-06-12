@@ -10,8 +10,18 @@ const HistorialTrabajos = () => {
   const [selectedServicio, setSelectedServicio] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   
-  // Buscar el técnico actual
-  const tecnicoActual = data.tecnicos.find(t => t.usuario === user.username) || data.tecnicos[0];
+  // Buscar el técnico actual con lógica mejorada
+  const tecnicoActual = data.tecnicos.find(t => {
+    // Si tiene usuario.username (estructura del backend)
+    if (t.usuario && t.usuario.username) {
+      return t.usuario.username === user.username;
+    }
+    // Si tiene usuario directamente (estructura antigua)
+    if (t.usuario === user.username) {
+      return true;
+    }
+    return false;
+  }) || data.tecnicos[0];
   
   // Obtener servicios completados y cancelados del técnico
   const misServiciosHistorial = data.servicios.filter(

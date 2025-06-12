@@ -61,12 +61,14 @@ export const DataProvider = ({ children }) => {
       
       if (tecnicosResponse.success) {
         console.log('✅ Técnicos cargados:', tecnicosResponse.data?.length || 0);
+        console.log('📋 Muestra de técnicos:', tecnicosResponse.data?.slice(0, 2));
         setData(prev => ({
           ...prev,
           tecnicos: tecnicosResponse.data || []
         }));
       } else {
         console.error('❌ Error al cargar técnicos:', tecnicosResponse.message);
+        console.log('⚠️ Usando datos dummy para técnicos');
       }
       
       // TODO: Cargar otros datos (servicios, equipos, etc.) cuando tengamos los servicios
@@ -81,10 +83,27 @@ export const DataProvider = ({ children }) => {
 
   // Cargar datos del backend al montar o cuando cambie useBackend
   useEffect(() => {
+    console.log('🔄 DataContext useEffect - useBackend:', useBackend);
     if (useBackend) {
+      console.log('🚀 Iniciando carga de datos del backend...');
       loadBackendData();
+    } else {
+      console.log('⚠️ Backend deshabilitado, no se cargarán datos del servidor');
     }
   }, [useBackend]);
+
+  // Escuchar eventos de login para recargar datos inmediatamente
+  useEffect(() => {
+    const handleUserLogin = (event) => {
+      console.log('🎯 Evento de login detectado, recargando datos...', event.detail);
+      if (useBackend) {
+        loadBackendData();
+      }
+    };
+
+    window.addEventListener('userLoggedIn', handleUserLogin);
+    return () => window.removeEventListener('userLoggedIn', handleUserLogin);
+  }, [useBackend, loadBackendData]);
 
   // Guardar en localStorage solo si no usamos backend
   useEffect(() => {

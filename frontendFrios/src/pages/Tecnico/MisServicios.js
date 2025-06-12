@@ -76,7 +76,17 @@ const MisServicios = () => {
         }
       } else {
         // Usar datos estáticos como fallback
-        const tecnico = data.tecnicos.find(t => t.usuario === user.username) || data.tecnicos[0];
+        const tecnico = data.tecnicos.find(t => {
+          // Si tiene usuario.username (estructura del backend)
+          if (t.usuario && t.usuario.username) {
+            return t.usuario.username === user.username;
+          }
+          // Si tiene usuario directamente (estructura antigua)
+          if (t.usuario === user.username) {
+            return true;
+          }
+          return false;
+        }) || data.tecnicos[0];
         setTecnicoActual(tecnico);
         setServicios(data.servicios.filter(s => s.tecnicoId === tecnico.id));
         setClientes(data.clientes);
