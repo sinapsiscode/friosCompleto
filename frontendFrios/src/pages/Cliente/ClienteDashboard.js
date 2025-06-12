@@ -23,33 +23,30 @@ const ClienteDashboard = () => {
         setLoading(true);
         
         // Cargar información del cliente autenticado
-        const miInfo = await clienteService.getMe();
+        const miInfoResponse = await clienteService.getMe();
+        const miInfo = miInfoResponse.data || miInfoResponse;
+        console.log('✅ Cliente cargado:', miInfo);
         setClienteActual(miInfo);
-        
-        // Cargar servicios del cliente
-        const servicios = await servicioService.getAll({ clienteId: miInfo.id });
-        console.log('🔍 Servicios response:', servicios);
-        console.log('📊 Servicios data:', servicios.data);
-        console.log('📊 Servicios length:', servicios.data?.length);
-        setMisServicios(servicios.data || []);
         
         // Los equipos ya vienen en miInfo
         console.log('🔧 Equipos desde cliente:', miInfo.equipos);
+        console.log('📊 Cantidad de equipos:', miInfo.equipos?.length || 0);
         setMisEquipos(miInfo.equipos || []);
+        
+        // Cargar servicios del cliente
+        try {
+          const servicios = await servicioService.getAll({ clienteId: miInfo.id });
+          console.log('🔍 Servicios response:', servicios);
+          console.log('📊 Servicios data:', servicios.data);
+          console.log('📊 Servicios length:', servicios.data?.length);
+          setMisServicios(servicios.data || []);
+        } catch (error) {
+          console.error('Error cargando servicios:', error);
+          setMisServicios([]);
+        }
         
       } catch (error) {
         console.error('Error cargando datos del cliente:', error);
-        // Fallback a datos estáticos
-        const clienteEstatico = {
-          id: 'cliente-demo',
-          usuario: user?.username || 'cliente',
-          nombre: 'Cliente',
-          apellido: 'Demo',
-          razonSocial: 'Empresa Demo S.A.C.',
-          equipos: []
-        };
-        setClienteActual(clienteEstatico);
-        setMisServicios([]);
       } finally {
         setLoading(false);
       }
@@ -64,6 +61,11 @@ const ClienteDashboard = () => {
   if (loading || !clienteActual) {
     return <div className="p-6">Cargando...</div>;
   }
+
+  console.log('🎯 === RENDER DASHBOARD ===');
+  console.log('👤 clienteActual:', clienteActual);
+  console.log('📦 misEquipos:', misEquipos);
+  console.log('📋 misServicios:', misServicios);
 
   // Usar datos cargados del backend
   const tecnicos = data.tecnicos;
@@ -89,13 +91,13 @@ const ClienteDashboard = () => {
             Mi Panel de Control
           </h1>
           <p className="text-sm lg:text-lg mt-2 opacity-90 relative z-10">
-            Bienvenido, {clienteActual.razonSocial || `${clienteActual.nombre} ${clienteActual.apellido}`}
+            Bienvenido, {clienteActual?.razonSocial || (clienteActual?.nombre && clienteActual?.apellido ? `${clienteActual.nombre} ${clienteActual.apellido}` : 'Cliente')}
           </p>
         </div>
         <div className="flex gap-4 relative z-10 w-full lg:w-auto">
           <button 
             className="bg-white text-primary px-4 lg:px-6 py-2 lg:py-3 rounded-lg font-medium transition-all duration-200 hover:bg-gray-50 flex items-center justify-center gap-2 shadow-sm w-full lg:w-auto"
-            onClick={() => navigate('/solicitar-servicio')}
+            onClick={() => navigate('/cliente/solicitar-servicio')}
           >
             <i className="fas fa-plus-circle"></i>
             <span>Solicitar Orden</span>
@@ -182,7 +184,7 @@ const ClienteDashboard = () => {
           {proximosServicios.length > 0 ? (
             <div className="flex flex-col gap-4 lg:gap-6">
               {proximosServicios.map(servicio => {
-                const tecnico = tecnicos.find(t => t.id === servicio.tecnicoId);
+                const tecnico = servicio.tecnico;
                 return (
                   <div key={servicio.id} className="flex flex-col sm:flex-row gap-4 lg:gap-6 relative animate-fadeIn">
                     <div className="flex sm:flex-col items-center sm:items-center flex-shrink-0">
@@ -210,7 +212,7 @@ const ClienteDashboard = () => {
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <i className="fas fa-snowflake text-gray-500"></i>
-                          <span>{servicio.serviciosEquipos?.length || 0} equipos</span>
+                          <span>{servicio.equiposServicio?.length || (servicio.equipoId ? 1 : 0)} equipos</span>
                         </div>
                       </div>
                     </div>
@@ -268,7 +270,7 @@ const ClienteDashboard = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {misServicios.map(servicio => {
-                  const tecnico = tecnicos.find(t => t.id === servicio.tecnicoId);
+                  const tecnico = servicio.tecnico;
                   return (
                     <tr key={servicio.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -419,7 +421,7 @@ const ClienteDashboard = () => {
             <button
               onClick={() => {
                 setShowCalendarModal(false);
-                navigate('/solicitar-servicio');
+                navigate('/cliente/solicitar-servicio');
               }}
               className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex items-center justify-center gap-2 order-1 sm:order-2"
             >
