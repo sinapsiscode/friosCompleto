@@ -5,10 +5,16 @@ const authService = {
   // Login con backend
   async login(username, password) {
     try {
+      console.log('🔐 === AUTH SERVICE LOGIN ===');
+      console.log('👤 Usuario:', username);
+      console.log('🔒 Password length:', password.length);
+      
       const response = await api.post('/api/auth/login', {
         username,
         password
       });
+      
+      console.log('📡 Respuesta del servidor:', response.data);
       
       if (response.data.success) {
         // Guardar token y datos del usuario en sessionStorage para sesiones independientes
@@ -22,6 +28,7 @@ const authService = {
         
         sessionStorage.setItem('user', JSON.stringify(user));
         
+        console.log('✅ Login exitoso, usuario guardado:', user);
         return {
           success: true,
           user: user,
@@ -29,13 +36,17 @@ const authService = {
         };
       }
       
+      console.log('❌ Login fallido desde servidor:', response.data.message);
       return {
         success: false,
         message: response.data.message || 'Error en el login'
       };
       
     } catch (error) {
-      console.error('Error en login:', error);
+      console.error('❌ Error en auth.service.login:', error);
+      console.error('📋 Status:', error.response?.status);
+      console.error('📋 Response data:', error.response?.data);
+      
       return {
         success: false,
         message: error.response?.data?.message || 'Error de conexión con el servidor'

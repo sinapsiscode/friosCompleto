@@ -76,15 +76,32 @@ const Servicios = () => {
     cargarDatos();
   }, [data.servicios, data.clientes, data.tecnicos]);
 
+  // Actualización automática cada 30 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      recargarServicios();
+    }, 30000); // 30 segundos
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Función para recargar servicios
-  const recargarServicios = async () => {
+  const recargarServicios = async (showNotification = false) => {
     try {
       console.log('🔄 Recargando servicios...');
       const response = await servicioService.getAll({ limit: 100 });
       setServicios(response.data || []);
       console.log('✅ Servicios recargados');
+      
+      // Mostrar notificación solo si se solicita explícitamente
+      if (showNotification) {
+        showAlert('Servicios actualizados correctamente', 'success');
+      }
     } catch (error) {
       console.error('❌ Error recargando servicios:', error);
+      if (showNotification) {
+        showAlert('Error al actualizar servicios', 'error');
+      }
     }
   };
 
@@ -314,6 +331,14 @@ const Servicios = () => {
           </div>
           <button className="btn-calendar" onClick={() => setShowCalendario(true)}>
             <i className="fas fa-calendar"></i> Ver Calendario
+          </button>
+          <button 
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 text-sm font-medium"
+            onClick={() => recargarServicios(true)}
+            title="Actualizar servicios"
+          >
+            <i className="fas fa-sync-alt"></i>
+            Actualizar
           </button>
           <button className="btn-primary-enhanced group" onClick={handleNuevoServicio}>
             <span>

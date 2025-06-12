@@ -1,44 +1,133 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
 import AuthContext from '../../context/AuthContext';
 import Modal from '../../components/Common/Modal';
 import ServicioDetalleForm from '../../components/Forms/ServicioDetalleForm';
 import { showAlert } from '../../utils/sweetAlert';
+import servicioService from '../../services/servicio.service';
+import tecnicoService from '../../services/tecnico.service';
 
 const MisServicios = () => {
   const { data, updateItem } = useContext(DataContext);
-  const { user } = useContext(AuthContext);
+  const { user, useBackend } = useContext(AuthContext);
   const [filterEstado, setFilterEstado] = useState('todos');
   const [showModal, setShowModal] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [servicioToCancel, setServicioToCancel] = useState(null);
   const [motivoCancelacion, setMotivoCancelacion] = useState('');
+  const [servicios, setServicios] = useState([]);
+  const [tecnicoActual, setTecnicoActual] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [clientes, setClientes] = useState([]);
+  const [equipos, setEquipos] = useState([]);
   
-  // Buscar el técnico actual
-  const tecnicoActual = data.tecnicos.find(t => t.usuario === user.username) || data.tecnicos[0];
+  // Cargar datos del técnico y servicios
+  useEffect(() => {
+    const loadData = async () => {
+      if (useBackend) {
+        try {
+          setLoading(true);
+          
+          // Buscar el técnico actual por userId o email
+          const tecnicosResult = await tecnicoService.getAll();
+          if (tecnicosResult.success) {
+            console.log('👥 Técnicos disponibles:', tecnicosResult.data);
+            console.log('👤 Usuario actual:', user);
+            
+            // Buscar técnico por userId, email o username
+            const tecnico = tecnicosResult.data.find(t => 
+              t.userId === user.id || 
+              t.email === user.email || 
+              t.email === user.username ||
+              (user.username && t.email.includes(user.username))
+            );
+            
+            if (tecnico) {
+              console.log('✅ Técnico encontrado:', tecnico);
+              setTecnicoActual(tecnico);
+              
+              // Cargar servicios del técnico
+              const serviciosResult = await servicioService.getAll({ tecnicoId: tecnico.id });
+              if (serviciosResult.success) {
+                console.log('✅ Servicios del técnico cargados:', serviciosResult.data);
+                setServicios(serviciosResult.data || []);
+              }
+            } else {
+              console.log('❌ No se encontró técnico para el usuario:', user);
+              showAlert('No se pudo encontrar el perfil de técnico asociado', 'warning');
+            }
+          }
+          
+          // Cargar clientes y equipos para mostrar información completa
+          const [clientesResult, equiposResult] = await Promise.all([
+            import('../../services/cliente.service').then(mod => mod.default.getAll()),
+            import('../../services/equipo.service').then(mod => mod.default.getAll())
+          ]);
+          
+          if (clientesResult.success) setClientes(clientesResult.data || []);
+          if (equiposResult.success) setEquipos(equiposResult.data || []);
+          
+        } catch (error) {
+          console.error('❌ Error cargando datos del técnico:', error);
+          showAlert('Error al cargar los servicios', 'error');
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // Usar datos estáticos como fallback
+        const tecnico = data.tecnicos.find(t => t.usuario === user.username) || data.tecnicos[0];
+        setTecnicoActual(tecnico);
+        setServicios(data.servicios.filter(s => s.tecnicoId === tecnico.id));
+        setClientes(data.clientes);
+        setEquipos(data.equipos);
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [useBackend, user]);
   
-  // Filtrar servicios del técnico
-  const misServicios = data.servicios.filter(s => s.tecnicoId === tecnicoActual.id);
+  // Filtrar servicios
+  const misServicios = servicios;
   
   const filteredServicios = misServicios.filter(servicio => {
     return filterEstado === 'todos' || servicio.estado === filterEstado;
   });
 
-  // Separar por estado
-  const pendientes = filteredServicios.filter(s => s.estado === 'pendiente');
+  // Separar por estado (considerar tanto mayúsculas como minúsculas)
+  const pendientes = filteredServicios.filter(s => s.estado?.toLowerCase() === 'pendiente');
   console.log('Servicios pendientes:', pendientes);
-  const enProceso = filteredServicios.filter(s => s.estado === 'proceso');
-  const completados = filteredServicios.filter(s => s.estado === 'completado');
-  const cancelados = filteredServicios.filter(s => s.estado === 'cancelado');
+  const enProceso = filteredServicios.filter(s => s.estado?.toLowerCase() === 'proceso');
+  const completados = filteredServicios.filter(s => s.estado?.toLowerCase() === 'completado');
+  const cancelados = filteredServicios.filter(s => s.estado?.toLowerCase() === 'cancelado');
 
-  const handleIniciarServicio = (servicioId) => {
-    updateItem('servicios', servicioId, { 
-      estado: 'proceso',
-      horaInicio: new Date().toISOString()
-    });
-    
-    showAlert('Servicio iniciado exitosamente', 'success');
+  const handleIniciarServicio = async (servicioId) => {
+    try {
+      if (useBackend) {
+        const result = await servicioService.iniciar(servicioId);
+        if (result.success) {
+          // Actualizar el estado local
+          setServicios(prev => prev.map(s => 
+            s.id === servicioId 
+              ? { ...s, estado: 'PROCESO', fechaInicio: new Date().toISOString() }
+              : s
+          ));
+          showAlert('Servicio iniciado exitosamente', 'success');
+        } else {
+          showAlert('Error al iniciar el servicio', 'error');
+        }
+      } else {
+        updateItem('servicios', servicioId, { 
+          estado: 'proceso',
+          horaInicio: new Date().toISOString()
+        });
+        showAlert('Servicio iniciado exitosamente', 'success');
+      }
+    } catch (error) {
+      console.error('❌ Error al iniciar servicio:', error);
+      showAlert('Error al iniciar el servicio', 'error');
+    }
   };
 
   const handleCompletarServicio = (servicio) => {
@@ -52,20 +141,44 @@ const MisServicios = () => {
     setShowCancelConfirm(true);
   };
 
-  const confirmCancelServicio = () => {
+  const confirmCancelServicio = async () => {
     if (servicioToCancel && motivoCancelacion.trim()) {
-      updateItem('servicios', servicioToCancel.id, { 
-        estado: 'cancelado',
-        fechaCancelado: new Date().toISOString(),
-        motivoCancelacion: motivoCancelacion.trim(),
-        horaFin: new Date().toISOString()
-      });
-      
-      showAlert('Servicio cancelado exitosamente', 'warning');
-      
-      setShowCancelConfirm(false);
-      setServicioToCancel(null);
-      setMotivoCancelacion('');
+      try {
+        if (useBackend) {
+          const result = await servicioService.cancelar(servicioToCancel.id, motivoCancelacion.trim());
+          if (result.success) {
+            // Actualizar el estado local
+            setServicios(prev => prev.map(s => 
+              s.id === servicioToCancel.id 
+                ? { 
+                    ...s, 
+                    estado: 'CANCELADO',
+                    fechaCancelado: new Date().toISOString(),
+                    motivoCancelacion: motivoCancelacion.trim()
+                  }
+                : s
+            ));
+            showAlert('Servicio cancelado exitosamente', 'warning');
+          } else {
+            showAlert('Error al cancelar el servicio', 'error');
+          }
+        } else {
+          updateItem('servicios', servicioToCancel.id, { 
+            estado: 'cancelado',
+            fechaCancelado: new Date().toISOString(),
+            motivoCancelacion: motivoCancelacion.trim(),
+            horaFin: new Date().toISOString()
+          });
+          showAlert('Servicio cancelado exitosamente', 'warning');
+        }
+        
+        setShowCancelConfirm(false);
+        setServicioToCancel(null);
+        setMotivoCancelacion('');
+      } catch (error) {
+        console.error('❌ Error al cancelar servicio:', error);
+        showAlert('Error al cancelar el servicio', 'error');
+      }
     }
   };
 
@@ -86,6 +199,17 @@ const MisServicios = () => {
       default: return 'secondary';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-6xl mx-auto p-6 animate-fadeIn">
+        <div className="text-center py-16 bg-white rounded-lg shadow-sm">
+          <i className="fas fa-spinner fa-spin text-4xl text-primary mb-4"></i>
+          <p className="text-gray-600">Cargando servicios...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-6xl mx-auto p-6 animate-fadeIn">
@@ -123,8 +247,16 @@ const MisServicios = () => {
             </div>
             <div className="p-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {pendientes.map(servicio => {
-                const cliente = data.clientes.find(c => c.id === servicio.clienteId);
-                const equipos = data.equipos.filter(e => servicio.equipos.includes(e.id));
+                const cliente = clientes.find(c => c.id === servicio.clienteId);
+                const servicioEquipos = equipos.filter(e => {
+                  // Manejar tanto array de IDs como un solo equipoId
+                  if (servicio.equipos) {
+                    return servicio.equipos.includes(e.id);
+                  } else if (servicio.equipoId) {
+                    return e.id === servicio.equipoId;
+                  }
+                  return false;
+                });
                 
                 return (
                   <div key={servicio.id} className="bg-white border-2 border-gray-200 border-l-warning border-l-4 rounded-lg p-6 hover:border-gray-300 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
@@ -133,10 +265,10 @@ const MisServicios = () => {
                         Servicio
                       </h4>
                       <div className="flex gap-2 flex-wrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${servicio.tipo === 'preventivo' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'}`}>
-                          <i className={`fas fa-${servicio.tipo === 'preventivo' ? 'shield-alt' : 'tools'}`}></i> {servicio.tipo}
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${(servicio.tipoServicio || servicio.tipo) === 'Preventivo' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'}`}>
+                          <i className={`fas fa-${(servicio.tipoServicio || servicio.tipo) === 'Preventivo' ? 'shield-alt' : 'tools'}`}></i> {servicio.tipoServicio || servicio.tipo}
                         </span>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${servicio.prioridad === 'alta' ? 'bg-danger/10 text-danger' : servicio.prioridad === 'media' ? 'bg-warning/10 text-warning' : 'bg-gray-100 text-gray-600'}`}>
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${(servicio.prioridad || '').toLowerCase() === 'alta' ? 'bg-danger/10 text-danger' : (servicio.prioridad || '').toLowerCase() === 'media' ? 'bg-warning/10 text-warning' : 'bg-gray-100 text-gray-600'}`}>
                           <i className="fas fa-flag"></i> {servicio.prioridad}
                         </span>
                       </div>
@@ -150,11 +282,11 @@ const MisServicios = () => {
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2 text-sm text-gray-700">
                           <i className="fas fa-calendar w-4 text-gray-500"></i>
-                          <span>{new Date(servicio.fecha).toLocaleDateString()}</span>
+                          <span>{servicio.fechaProgramada ? new Date(servicio.fechaProgramada).toLocaleDateString() : 'No programada'}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-700">
                           <i className="fas fa-clock w-4 text-gray-500"></i>
-                          <span>{servicio.hora}</span>
+                          <span>{servicio.fechaProgramada ? new Date(servicio.fechaProgramada).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : 'No programada'}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-700">
@@ -170,7 +302,7 @@ const MisServicios = () => {
                     <div className="bg-gray-50 p-4 rounded-md mb-6">
                       <h5 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Equipos a revisar:</h5>
                       <ul className="space-y-1">
-                        {equipos.map(equipo => (
+                        {servicioEquipos.map(equipo => (
                           <li key={equipo.id} className="text-sm text-gray-600 flex items-center gap-2">
                             <span className="w-2 h-2 bg-primary rounded-full"></span>
                             {equipo.tipo} {equipo.marca} {equipo.modelo} - {equipo.ubicacion}
@@ -215,8 +347,15 @@ const MisServicios = () => {
             </div>
             <div className="p-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {enProceso.map(servicio => {
-                const cliente = data.clientes.find(c => c.id === servicio.clienteId);
-                const equipos = data.equipos.filter(e => servicio.equipos.includes(e.id));
+                const cliente = clientes.find(c => c.id === servicio.clienteId);
+                const servicioEquipos = equipos.filter(e => {
+                  if (servicio.equipos) {
+                    return servicio.equipos.includes(e.id);
+                  } else if (servicio.equipoId) {
+                    return e.id === servicio.equipoId;
+                  }
+                  return false;
+                });
                 
                 return (
                   <div key={servicio.id} className="bg-white border-2 border-gray-200 border-l-info border-l-4 rounded-lg p-6 hover:border-gray-300 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
@@ -226,9 +365,9 @@ const MisServicios = () => {
                       </h4>
                       <span className="flex items-center gap-2 text-sm text-info font-medium">
                         <i className="fas fa-clock"></i>
-                        {servicio.horaInicio && (
+                        {servicio.fechaInicio && (
                           <span>
-                            En proceso desde {new Date(servicio.horaInicio).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+                            En proceso desde {new Date(servicio.fechaInicio).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         )}
                       </span>
@@ -281,7 +420,7 @@ const MisServicios = () => {
             </div>
             <div className="p-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {completados.map(servicio => {
-                const cliente = data.clientes.find(c => c.id === servicio.clienteId);
+                const cliente = clientes.find(c => c.id === servicio.clienteId);
                 
                 return (
                   <div key={servicio.id} className="bg-white border-2 border-gray-200 border-l-success border-l-4 rounded-lg p-6 hover:border-gray-300 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
@@ -301,7 +440,7 @@ const MisServicios = () => {
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-700">
                         <i className="fas fa-calendar w-4 text-gray-500"></i>
-                        <span>{new Date(servicio.fecha).toLocaleDateString()}</span>
+                        <span>{servicio.fechaProgramada ? new Date(servicio.fechaProgramada).toLocaleDateString() : 'No programada'}</span>
                       </div>
                     </div>
                     
@@ -337,7 +476,7 @@ const MisServicios = () => {
             </div>
             <div className="p-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {cancelados.map(servicio => {
-                const cliente = data.clientes.find(c => c.id === servicio.clienteId);
+                const cliente = clientes.find(c => c.id === servicio.clienteId);
                 
                 return (
                   <div key={servicio.id} className="bg-white border-2 border-gray-200 border-l-red-500 border-l-4 rounded-lg p-6 opacity-75">
@@ -357,7 +496,7 @@ const MisServicios = () => {
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-700">
                         <i className="fas fa-calendar w-4 text-gray-500"></i>
-                        <span>{new Date(servicio.fecha).toLocaleDateString()}</span>
+                        <span>{servicio.fechaProgramada ? new Date(servicio.fechaProgramada).toLocaleDateString() : 'No programada'}</span>
                       </div>
                     </div>
                     

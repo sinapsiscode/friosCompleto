@@ -110,6 +110,19 @@ const schemas = {
     role: Joi.string().valid('ADMIN', 'TECNICO', 'CLIENTE').required()
   }),
 
+  // Auth
+  login: Joi.object({
+    username: Joi.string().min(3).max(50).required().messages({
+      'string.min': 'El nombre de usuario debe tener al menos 3 caracteres',
+      'string.max': 'El nombre de usuario no puede tener más de 50 caracteres',
+      'any.required': 'El nombre de usuario es requerido'
+    }),
+    password: Joi.string().min(1).required().messages({
+      'string.min': 'La contraseña es requerida',
+      'any.required': 'La contraseña es requerida'
+    })
+  }),
+
   // Cliente
   cliente: Joi.object({
     username: Joi.string().pattern(/^[a-zA-Z0-9._-]+$/).min(3).max(30).required().messages({
@@ -250,10 +263,15 @@ const schemas = {
     equipoId: Joi.number().integer().positive().optional(),
     tipoServicio: Joi.string().min(5).max(100).required(),
     descripcion: Joi.string().min(10).max(1000).required(),
-    fechaProgramada: Joi.date().min('now').optional(),
+    fechaProgramada: Joi.date().optional(),
     prioridad: Joi.string().valid('BAJA', 'MEDIA', 'ALTA', 'URGENTE').default('MEDIA'),
     observaciones: Joi.string().max(500).optional(),
-    detalles: Joi.object().optional()
+    detalles: Joi.object().optional(),
+    // Campos adicionales del frontend
+    direccionServicio: Joi.string().max(200).optional(),
+    ciudadServicio: Joi.string().max(100).optional(),
+    distritoServicio: Joi.string().max(100).optional(),
+    equiposIds: Joi.array().items(Joi.number().integer().positive()).optional()
   }),
 
   updateServicio: Joi.object({

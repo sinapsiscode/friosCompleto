@@ -193,7 +193,11 @@ const servicioController = {
         prioridad = 'MEDIA',
         observaciones,
         detalles,
-        equiposIds // Array de IDs de equipos para múltiples equipos
+        equiposIds, // Array de IDs de equipos para múltiples equipos
+        // Campos adicionales del frontend
+        direccionServicio,
+        ciudadServicio,
+        distritoServicio
       } = req.body;
 
       // Verificar que el cliente existe
@@ -288,7 +292,11 @@ const servicioController = {
             estado: 'PENDIENTE',
             prioridad,
             observaciones: observaciones || null,
-            detalles: detalles || null
+            detalles: detalles || null,
+            // Campos de dirección del servicio
+            direccionServicio: direccionServicio || null,
+            ciudadServicio: ciudadServicio || null,
+            distritoServicio: distritoServicio || null
           }
         });
 
@@ -355,6 +363,7 @@ const servicioController = {
         tipoServicio, 
         descripcion, 
         fechaProgramada, 
+        fechaInicio,
         estado,
         prioridad,
         observaciones,
@@ -362,8 +371,11 @@ const servicioController = {
         evaluacion
       } = req.body;
 
+      console.log('🔄 Actualizando servicio:', id);
+      console.log('📝 Datos recibidos:', req.body);
+
       const servicio = await prisma.servicio.findUnique({
-        where: { id: parseInt(id) }
+        where: { id: id }
       });
 
       if (!servicio) {
@@ -397,12 +409,13 @@ const servicioController = {
       }
 
       const servicioActualizado = await prisma.servicio.update({
-        where: { id: parseInt(id) },
+        where: { id: id },
         data: {
           tecnicoId: tecnicoId ? parseInt(tecnicoId) : servicio.tecnicoId,
           tipoServicio: tipoServicio || servicio.tipoServicio,
           descripcion: descripcion || servicio.descripcion,
           fechaProgramada: fechaProgramada ? new Date(fechaProgramada) : servicio.fechaProgramada,
+          fechaInicio: fechaInicio ? new Date(fechaInicio) : servicio.fechaInicio,
           estado: estado || servicio.estado,
           prioridad: prioridad || servicio.prioridad,
           observaciones: observaciones !== undefined ? observaciones : servicio.observaciones,

@@ -28,7 +28,7 @@ router.get('/:id',
 
 // POST /api/servicios - Crear nuevo servicio
 router.post('/',
-  requireRole(['ADMIN', 'CLIENTE']),
+  requireRole(['ADMIN', 'CLIENTE', 'TECNICO']),
   validate(schemas.createServicio),
   servicioController.create
 );
