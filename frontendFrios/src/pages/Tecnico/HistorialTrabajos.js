@@ -32,16 +32,31 @@ const HistorialTrabajos = () => {
   
   // Obtener servicios completados y cancelados del técnico (con validación)
   const misServiciosHistorial = tecnicoActual && tecnicoActual.id 
-    ? data.servicios.filter(s => s.tecnicoId === tecnicoActual.id && (s.estado === 'completado' || s.estado === 'cancelado'))
+    ? data.servicios.filter(s => {
+        // Manejar estructuras del backend (estados en mayúsculas)
+        const estadoNormalizado = s.estado?.toLowerCase() || s.estado;
+        return s.tecnicoId === tecnicoActual.id && 
+               (estadoNormalizado === 'completado' || estadoNormalizado === 'cancelado');
+      })
     : [];
+
+  console.log('🔍 === DEBUGGING HISTORIAL TRABAJOS ===');
+  console.log('👤 Técnico actual:', tecnicoActual);
+  console.log('📊 Total servicios en data:', data.servicios?.length || 0);
+  console.log('📋 Servicios del técnico (historial):', misServiciosHistorial?.length || 0);
+  console.log('📄 Muestra de servicios:', misServiciosHistorial.slice(0, 3));
 
   // Filtrar servicios
   const filteredServicios = misServiciosHistorial.filter(servicio => {
-    const matchesTipo = filterTipo === 'todos' || servicio.tipo === filterTipo;
+    // Manejar tipos de servicio del backend
+    const tipoNormalizado = servicio.tipoServicio?.toLowerCase() || servicio.tipo?.toLowerCase();
+    const matchesTipo = filterTipo === 'todos' || tipoNormalizado === filterTipo;
     
     if (filterMes === 'todos') return matchesTipo;
     
-    const servicioDate = new Date(servicio.fecha);
+    // Usar fechaCompletado del backend si existe, sino fecha programada
+    const fechaServicio = servicio.fechaCompletado || servicio.fechaProgramada || servicio.fecha;
+    const servicioDate = new Date(fechaServicio);
     const currentDate = new Date();
     
     switch (filterMes) {
@@ -64,7 +79,9 @@ const HistorialTrabajos = () => {
 
   // Agrupar por mes
   const serviciosPorMes = filteredServicios.reduce((acc, servicio) => {
-    const fecha = new Date(servicio.fecha);
+    // Usar fechaCompletado del backend si existe, sino fechaProgramada
+    const fechaServicio = servicio.fechaCompletado || servicio.fechaProgramada || servicio.fecha;
+    const fecha = new Date(fechaServicio);
     const mesKey = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
     const mesNombre = fecha.toLocaleDateString('es', { month: 'long', year: 'numeric' });
     
@@ -81,11 +98,18 @@ const HistorialTrabajos = () => {
 
   // Calcular estadísticas
   const totalServicios = filteredServicios.length;
-  const serviciosConEvaluacion = filteredServicios.filter(s => s.evaluacion).length;
+  const serviciosConEvaluacion = filteredServicios.filter(s => 
+    s.evaluacion && (typeof s.evaluacion === 'object' ? s.evaluacion.calificacion : false)
+  ).length;
   const promedioCalificacion = serviciosConEvaluacion > 0
     ? (filteredServicios
-        .filter(s => s.evaluacion)
-        .reduce((acc, s) => acc + s.evaluacion.calificacion, 0) / serviciosConEvaluacion
+        .filter(s => s.evaluacion && s.evaluacion.calificacion)
+        .reduce((acc, s) => {
+          const calificacion = typeof s.evaluacion === 'object' 
+            ? s.evaluacion.calificacion 
+            : 0;
+          return acc + calificacion;
+        }, 0) / serviciosConEvaluacion
       ).toFixed(1)
     : 0;
 
@@ -120,8 +144,9 @@ const HistorialTrabajos = () => {
             className="w-full lg:min-w-40 px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-700 cursor-pointer transition-all hover:border-primary focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10"
           >
             <option value="todos">Todos los tipos</option>
-            <option value="preventivo">Preventivo</option>
-            <option value="correctivo">Correctivo</option>
+            <option value="preventivo">Mantenimiento Preventivo</option>
+            <option value="correctivo">Servicio Correctivo</option>
+            <option value="programado">Mantenimiento Programado</option>
           </select>
         </div>
       </div>

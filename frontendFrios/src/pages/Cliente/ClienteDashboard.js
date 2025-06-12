@@ -4,52 +4,80 @@ import AuthContext from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Modal from '../../components/Common/Modal';
 import CalendarioServicios from '../../components/Common/CalendarioServicios';
+import servicioService from '../../services/servicio.service';
+import clienteService from '../../services/cliente.service';
 
 const ClienteDashboard = () => {
   const { data } = useContext(DataContext);
   const { user } = useContext(AuthContext);
   const [clienteActual, setClienteActual] = useState(null);
+  const [misServicios, setMisServicios] = useState([]);
+  const [misEquipos, setMisEquipos] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const navigate = useNavigate();
   
   useEffect(() => {
-    const cliente = data.clientes.find(c => c.usuario === user.username);
-    if (cliente) {
-      setClienteActual(cliente);
-    } else {
-      // Usar datos estáticos si no se encuentra cliente
-      const clienteEstatico = {
-        id: 'cliente-demo',
-        usuario: user?.username || 'cliente',
-        nombre: 'Cliente',
-        apellido: 'Demo',
-        razonSocial: 'Empresa Demo S.A.C.',
-        equipos: []
-      };
-      setClienteActual(clienteEstatico);
-    }
-  }, [data.clientes, user]);
+    const loadClienteData = async () => {
+      try {
+        setLoading(true);
+        
+        // Cargar información del cliente autenticado
+        const miInfo = await clienteService.getMe();
+        setClienteActual(miInfo);
+        
+        // Cargar servicios del cliente
+        const servicios = await servicioService.getAll({ clienteId: miInfo.id });
+        console.log('🔍 Servicios response:', servicios);
+        console.log('📊 Servicios data:', servicios.data);
+        console.log('📊 Servicios length:', servicios.data?.length);
+        setMisServicios(servicios.data || []);
+        
+        // Los equipos ya vienen en miInfo
+        console.log('🔧 Equipos desde cliente:', miInfo.equipos);
+        setMisEquipos(miInfo.equipos || []);
+        
+      } catch (error) {
+        console.error('Error cargando datos del cliente:', error);
+        // Fallback a datos estáticos
+        const clienteEstatico = {
+          id: 'cliente-demo',
+          usuario: user?.username || 'cliente',
+          nombre: 'Cliente',
+          apellido: 'Demo',
+          razonSocial: 'Empresa Demo S.A.C.',
+          equipos: []
+        };
+        setClienteActual(clienteEstatico);
+        setMisServicios([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Mostrar loading mientras se establece el cliente
-  if (!clienteActual) {
+    if (user) {
+      loadClienteData();
+    }
+  }, [user]);
+
+  // Mostrar loading mientras carga
+  if (loading || !clienteActual) {
     return <div className="p-6">Cargando...</div>;
   }
 
-  // Usar datos del contexto
-  const misServicios = data.servicios.filter(s => s.clienteId === clienteActual?.id);
-  const misEquipos = data.equipos.filter(e => clienteActual?.equipos?.includes(e.id));
+  // Usar datos cargados del backend
   const tecnicos = data.tecnicos;
 
   // Estadísticas del cliente
-  const serviciosActivos = misServicios.filter(s => s.estado !== 'completado').length;
-  const serviciosCompletados = misServicios.filter(s => s.estado === 'completado').length;
+  const serviciosActivos = misServicios.filter(s => s.estado !== 'COMPLETADO' && s.estado !== 'CANCELADO').length;
+  const serviciosCompletados = misServicios.filter(s => s.estado === 'COMPLETADO').length;
   const totalEquipos = misEquipos.length;
-  const serviciosPendientesEvaluacion = misServicios.filter(s => s.estado === 'completado' && !s.evaluacion).length;
+  const serviciosPendientesEvaluacion = misServicios.filter(s => s.estado === 'COMPLETADO' && !s.evaluacion).length;
 
   // Próximos servicios - ordenados del más reciente al más antiguo
   const proximosServicios = misServicios
-    .filter(s => s.estado === 'pendiente')
-    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    .filter(s => s.estado === 'PENDIENTE' || s.estado === 'PROCESO')
+    .sort((a, b) => new Date(b.fechaProgramada) - new Date(a.fechaProgramada))
     .slice(0, 5);
 
   return (
@@ -159,22 +187,22 @@ const ClienteDashboard = () => {
                   <div key={servicio.id} className="flex flex-col sm:flex-row gap-4 lg:gap-6 relative animate-fadeIn">
                     <div className="flex sm:flex-col items-center sm:items-center flex-shrink-0">
                       <div className="bg-gradient-to-br from-primary to-primary-dark text-white p-3 lg:p-4 rounded-lg text-center min-w-[60px] lg:min-w-[70px] shadow-md relative z-10">
-                        <span className="block text-xl lg:text-2xl font-bold leading-none">{new Date(servicio.fecha).getDate()}</span>
-                        <span className="block text-xs mt-1 uppercase tracking-wider">{new Date(servicio.fecha).toLocaleDateString('es', { month: 'short' }).toUpperCase()}</span>
+                        <span className="block text-xl lg:text-2xl font-bold leading-none">{new Date(servicio.fechaProgramada).getDate()}</span>
+                        <span className="block text-xs mt-1 uppercase tracking-wider">{new Date(servicio.fechaProgramada).toLocaleDateString('es', { month: 'short' }).toUpperCase()}</span>
                       </div>
                       <div className="w-full sm:w-0.5 h-0.5 sm:h-full bg-gray-200 mt-0 sm:mt-2 ml-4 sm:ml-0 flex-1 sm:flex-none relative before:content-[''] before:absolute before:top-0 sm:before:top-0 before:left-1/2 before:w-2 before:h-2 before:bg-primary before:rounded-full before:-translate-x-1/2 hidden sm:block"></div>
                     </div>
                     <div className="flex-1 bg-gray-50 rounded-lg p-4 lg:p-6 border-l-0 sm:border-l-4 border-t-4 sm:border-t-0 border-primary transition-all duration-200 hover:shadow-md hover:bg-white">
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-3 lg:mb-4 gap-2 sm:gap-0">
                         <h4 className="text-base lg:text-lg font-semibold text-gray-900 m-0">{servicio.descripcion}</h4>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium self-start ${servicio.tipo === 'programado' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                        {servicio.tipo === 'programado' ? 'Programado' : 'Correctivo'}
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium self-start ${servicio.tipoServicio === 'programado' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+                        {servicio.tipoServicio === 'programado' ? 'Programado' : 'Correctivo'}
                       </span>
                       </div>
                       <div className="flex flex-col sm:flex-row gap-3 lg:gap-6 flex-wrap">
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <i className="fas fa-clock text-gray-500"></i>
-                          <span>{servicio.hora || '09:00'}</span>
+                          <span>{servicio.horaInicio || servicio.rangoHorario || '09:00'}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <i className="fas fa-user-cog text-gray-500"></i>
@@ -182,7 +210,7 @@ const ClienteDashboard = () => {
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <i className="fas fa-snowflake text-gray-500"></i>
-                          <span>{servicio.equipos?.length || 0} equipos</span>
+                          <span>{servicio.serviciosEquipos?.length || 0} equipos</span>
                         </div>
                       </div>
                     </div>
@@ -207,7 +235,89 @@ const ClienteDashboard = () => {
 
       </div>
 
-      <div className="bg-white rounded-lg lg:rounded-2xl p-4 lg:p-6 shadow-sm border border-gray-100 mt-6">
+      {/* Panel de Órdenes */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4">Orden de Servicio</h2>
+        <p className="text-gray-600 mb-6">Gestiona tus órdenes de servicio</p>
+        
+        {misServicios.length === 0 ? (
+          <div className="text-center py-16">
+            <i className="fas fa-clipboard-list text-6xl text-gray-300 mb-4"></i>
+            <p className="text-lg text-gray-500 mb-6">No hay órdenes para mostrar</p>
+            <p className="text-gray-400 mb-6">Aún no has creado ninguna orden de servicio</p>
+            <button 
+              className="bg-primary text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 hover:bg-primary-dark flex items-center gap-2 mx-auto"
+              onClick={() => navigate('/cliente/solicitar-servicio')}
+            >
+              <i className="fas fa-plus"></i>
+              <span>Crear primera orden</span>
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nº Orden</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Programada</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Técnico</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {misServicios.map(servicio => {
+                  const tecnico = tecnicos.find(t => t.id === servicio.tecnicoId);
+                  return (
+                    <tr key={servicio.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {servicio.numeroOrden || servicio.id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          servicio.tipoServicio === 'programado' ? 'bg-green-100 text-green-800' : 
+                          servicio.tipoServicio === 'correctivo' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {servicio.tipoServicio}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(servicio.fechaProgramada).toLocaleDateString('es-ES', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          servicio.estado === 'PENDIENTE' ? 'bg-gray-100 text-gray-800' : 
+                          servicio.estado === 'PROCESO' ? 'bg-blue-100 text-blue-800' :
+                          servicio.estado === 'COMPLETADO' ? 'bg-green-100 text-green-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {servicio.estado}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {tecnico ? `${tecnico.nombre} ${tecnico.apellido}` : 'Por asignar'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button className="text-indigo-600 hover:text-indigo-900">
+                          Ver detalles
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-lg lg:rounded-2xl p-4 lg:p-6 shadow-sm border border-gray-100">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 lg:mb-6 pb-4 border-b border-gray-100 gap-3 sm:gap-0">
           <h2 className="text-lg lg:text-xl font-semibold text-gray-800 flex items-center gap-2 lg:gap-3">
             <i className="fas fa-snowflake"></i>
@@ -217,31 +327,31 @@ const ClienteDashboard = () => {
           <div className="flex gap-3 lg:gap-6 flex-wrap">
             <div className="flex items-center gap-2 text-xs lg:text-sm bg-success/10 text-success px-2 lg:px-3 py-1 rounded-full">
               <i className="fas fa-check-circle"></i>
-              <span>{misEquipos.filter(e => e.estado === 'operativo').length} <span className="hidden sm:inline">Operativos</span><span className="sm:hidden">OK</span></span>
+              <span>{misEquipos.filter(e => e.estadoOperativo === 'operativo').length} <span className="hidden sm:inline">Operativos</span><span className="sm:hidden">OK</span></span>
             </div>
             <div className="flex items-center gap-2 text-xs lg:text-sm bg-warning/10 text-warning px-2 lg:px-3 py-1 rounded-full">
               <i className="fas fa-tools"></i>
-              <span>{misEquipos.filter(e => e.estado === 'mantenimiento').length} <span className="hidden sm:inline">En mantenimiento</span><span className="sm:hidden">Mant.</span></span>
+              <span>{misEquipos.filter(e => e.estadoOperativo === 'mantenimiento').length} <span className="hidden sm:inline">En mantenimiento</span><span className="sm:hidden">Mant.</span></span>
             </div>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mt-4 lg:mt-6">
           {misEquipos.map(equipo => {
             const ultimoServicio = misServicios
-              .filter(s => s.equipos?.includes(equipo.id) && s.estado === 'completado')
-              .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
+              .filter(s => s.equipoId === equipo.id && s.estado === 'COMPLETADO')
+              .sort((a, b) => new Date(b.fechaCompletado) - new Date(a.fechaCompletado))[0];
             
             return (
               <div key={equipo.id} className="bg-white border border-gray-100 rounded-2xl lg:rounded-3xl overflow-hidden transition-all duration-500 hover:transform hover:-translate-y-1 lg:hover:-translate-y-2 hover:scale-105 hover:shadow-xl relative animate-fadeIn before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-gradient-to-r before:from-success before:to-success-light before:opacity-0 before:transition-opacity before:duration-200 hover:before:opacity-100">
                 <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 lg:p-6 flex justify-between items-center border-b border-gray-100">
-                  <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center ${equipo.estado === 'operativo' ? 'bg-success/10 text-success' : 
-                    equipo.estado === 'mantenimiento' ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger'}`}>
+                  <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center ${equipo.estadoOperativo === 'operativo' ? 'bg-success/10 text-success' : 
+                    equipo.estadoOperativo === 'mantenimiento' ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger'}`}>
                     <i className="fas fa-snowflake text-sm lg:text-base"></i>
                   </div>
-                  <span className={`px-2 lg:px-3 py-1 rounded-full text-xs font-medium ${equipo.estado === 'operativo' ? 'bg-success/10 text-success' : 
-                    equipo.estado === 'mantenimiento' ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger'}`}>
-                    {equipo.estado === 'operativo' ? 'Operativo' : 
-                     equipo.estado === 'mantenimiento' ? 'Mantenimiento' : 'Fuera de Servicio'}
+                  <span className={`px-2 lg:px-3 py-1 rounded-full text-xs font-medium ${equipo.estadoOperativo === 'operativo' ? 'bg-success/10 text-success' : 
+                    equipo.estadoOperativo === 'mantenimiento' ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger'}`}>
+                    {equipo.estadoOperativo === 'operativo' ? 'Operativo' : 
+                     equipo.estadoOperativo === 'mantenimiento' ? 'Mantenimiento' : 'Fuera de Servicio'}
                   </span>
                 </div>
                 <div className="p-4 lg:p-6">
@@ -254,7 +364,7 @@ const ClienteDashboard = () => {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <i className="fas fa-barcode text-gray-400 w-4 lg:w-5 text-center"></i>
-                      <span className="truncate">Serie: {equipo.serie}</span>
+                      <span className="truncate">Serie: {equipo.numeroSerie}</span>
                     </div>
                   </div>
                 </div>
@@ -262,8 +372,8 @@ const ClienteDashboard = () => {
                   {ultimoServicio ? (
                     <div className="flex items-center gap-2 text-xs lg:text-sm text-gray-500">
                       <i className="fas fa-wrench"></i>
-                      <span className="hidden sm:inline">Último servicio: {new Date(ultimoServicio.fecha).toLocaleDateString()}</span>
-                      <span className="sm:hidden">{new Date(ultimoServicio.fecha).toLocaleDateString()}</span>
+                      <span className="hidden sm:inline">Último servicio: {new Date(ultimoServicio.fechaCompletado).toLocaleDateString()}</span>
+                      <span className="sm:hidden">{new Date(ultimoServicio.fechaCompletado).toLocaleDateString()}</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 text-xs lg:text-sm text-gray-500">

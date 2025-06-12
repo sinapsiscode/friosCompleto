@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import clienteService from '../services/cliente.service';
 import tecnicoService from '../services/tecnico.service';
 import equipoService from '../services/equipo.service';
+import servicioService from '../services/servicio.service';
 import AuthContext from './AuthContext';
 
 export const DataContext = createContext();
@@ -94,6 +95,22 @@ export const DataProvider = ({ children }) => {
         }));
       } else {
         console.error('❌ Error al cargar equipos:', equiposResponse.message);
+      }
+      
+      // Cargar servicios del backend
+      console.log('📥 Cargando servicios...');
+      const serviciosResponse = await servicioService.getAll({ limit: 100 });
+      console.log('📊 Respuesta servicios:', serviciosResponse);
+      
+      if (serviciosResponse.success && serviciosResponse.data) {
+        console.log('✅ Servicios cargados:', serviciosResponse.data.length);
+        console.log('📋 Muestra de servicios:', serviciosResponse.data.slice(0, 3));
+        setData(prev => ({
+          ...prev,
+          servicios: serviciosResponse.data
+        }));
+      } else {
+        console.error('❌ Error al cargar servicios:', serviciosResponse.message);
       }
       
     } catch (error) {

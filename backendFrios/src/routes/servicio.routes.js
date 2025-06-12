@@ -10,7 +10,7 @@ router.use(authenticateToken);
 
 // GET /api/servicios - Obtener todos los servicios
 router.get('/', 
-  requireRole(['ADMIN', 'TECNICO']),
+  requireRole(['ADMIN', 'TECNICO', 'CLIENTE']),
   servicioController.getAll
 );
 

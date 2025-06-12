@@ -251,23 +251,26 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
       fecha: formData.fechaPreferida || formData.programacion.fechaInicio || new Date().toISOString().split('T')[0],
       hora: formData.horaPreferida || '09:00',
       ...ubicacionInfo,
-      // Agregar información del solicitante para administradores y técnicos
-      ...((user.userType === 'admin' || user.userType === 'tecnico') && {
-        solicitadoPor: user.userType === 'admin' ? {
-          tipo: 'admin',
-          id: null,
-          nombre: 'Administrador',
-          usuario: user.username
-        } : {
-          tipo: 'tecnico',
-          id: data.tecnicos.find(t => t.usuario === user.username)?.id,
-          nombre: (() => {
-            const tecnico = data.tecnicos.find(t => t.usuario === user.username);
-            return tecnico ? `${tecnico.nombre} ${tecnico.apellido}` : 'Técnico';
-          })(),
-          usuario: user.username
-        }
-      })
+      // Agregar información del solicitante
+      solicitadoPor: user.userType === 'admin' ? {
+        tipo: 'admin',
+        id: null,
+        nombre: 'Administrador',
+        usuario: user.username
+      } : user.userType === 'tecnico' ? {
+        tipo: 'tecnico',
+        id: data.tecnicos.find(t => t.usuario === user.username)?.id,
+        nombre: (() => {
+          const tecnico = data.tecnicos.find(t => t.usuario === user.username);
+          return tecnico ? `${tecnico.nombre} ${tecnico.apellido}` : 'Técnico';
+        })(),
+        usuario: user.username
+      } : {
+        tipo: 'cliente',
+        id: clienteActual?.id,
+        nombre: clienteActual ? `${clienteActual.nombre} ${clienteActual.apellido}` : 'Cliente',
+        usuario: user.username
+      }
     };
 
     console.log('📄 === DATOS A ENVIAR A LA API ===');
@@ -815,21 +818,39 @@ const SolicitarServicio = () => {
       console.log('🔄 === SOLICITAR SERVICIO - CARGA DE DATOS ===');
       console.log('👤 Tipo de usuario:', user?.userType || user?.role);
       
-      // Cargar clientes del backend directamente
+      // Cargar datos según tipo de usuario
       try {
-        console.log('🔄 Cargando clientes desde el backend...');
         setIsLoadingData(true);
-        const clientesResponse = await clienteService.getAll({ limit: 100 });
         
-        if (clientesResponse.success && clientesResponse.data) {
-          console.log('✅ Clientes cargados desde backend:', clientesResponse.data.length);
-          setClientesBackend(clientesResponse.data);
+        if (user?.userType === 'cliente' || user?.role === 'CLIENTE') {
+          // Para clientes: cargar solo su información
+          console.log('🔄 Cargando información del cliente autenticado...');
+          const miInfoResponse = await clienteService.getMe();
+          
+          if (miInfoResponse.success && miInfoResponse.data) {
+            console.log('✅ Mi información cargada:', miInfoResponse.data);
+            // Establecer el cliente actual directamente
+            setClienteActual(miInfoResponse.data);
+            setClientesBackend([miInfoResponse.data]); // Solo para compatibilidad
+          } else {
+            console.log('⚠️ No se pudo cargar mi información');
+            setClientesBackend([]);
+          }
         } else {
-          console.log('⚠️ No se pudieron cargar clientes del backend');
-          setClientesBackend([]);
+          // Para admins/técnicos: cargar todos los clientes
+          console.log('🔄 Cargando todos los clientes desde el backend...');
+          const clientesResponse = await clienteService.getAll({ limit: 100 });
+          
+          if (clientesResponse.success && clientesResponse.data) {
+            console.log('✅ Clientes cargados desde backend:', clientesResponse.data.length);
+            setClientesBackend(clientesResponse.data);
+          } else {
+            console.log('⚠️ No se pudieron cargar clientes del backend');
+            setClientesBackend([]);
+          }
         }
       } catch (error) {
-        console.error('❌ Error cargando clientes:', error);
+        console.error('❌ Error cargando datos:', error);
         setClientesBackend([]);
       } finally {
         setIsLoadingData(false);
@@ -848,15 +869,17 @@ const SolicitarServicio = () => {
     console.log('👥 Clientes disponibles (backend):', clientesBackend);
     console.log('🆔 ID del perfil:', user?.profile?.id);
     
-    if (user.userType === 'admin' || user.userType === 'tecnico') {
+    if (user.userType === 'admin' || user.userType === 'tecnico' || user.role === 'ADMIN' || user.role === 'TECNICO') {
       // Para administradores y técnicos, no hay cliente automático
       setClienteActual(null);
-    } else {
-      // Para clientes, buscar por usuario (considerar estructura de backend)
-      console.log('🔎 Buscando cliente para:', user?.username);
-      
-      // Buscar cliente de varias formas
-      const cliente = data.clientes.find(c => {
+    } else if (user.userType === 'cliente' || user.role === 'CLIENTE') {
+      // Para clientes, el clienteActual ya se estableció en loadData
+      // Solo necesitamos verificar si no está establecido y buscar como fallback
+      if (!clienteActual) {
+        console.log('🔎 Cliente no establecido, buscando como fallback...');
+        
+        // Buscar cliente de varias formas (fallback)
+        const cliente = data.clientes.find(c => {
         console.log('📌 Verificando cliente:', c);
         console.log('  - c.usuario:', c.usuario);
         console.log('  - c.usuario?.username:', c.usuario?.username);
@@ -892,9 +915,12 @@ const SolicitarServicio = () => {
           equipos: []
         };
         setClienteActual(clienteEstatico);
+        }
+      } else {
+        console.log('✅ Cliente ya establecido desde backend:', clienteActual);
       }
     }
-  }, [data.clientes, user]);
+  }, [data.clientes, user, clienteActual]);
 
   // Cálculos para clientes
   const misServicios = clienteActual 

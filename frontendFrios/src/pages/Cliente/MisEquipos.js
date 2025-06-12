@@ -3,6 +3,7 @@ import { DataContext } from '../../context/DataContext';
 import AuthContext from '../../context/AuthContext';
 import Modal from '../../components/Common/Modal';
 import EquipoForm from '../../components/Forms/EquipoForm';
+import clienteService from '../../services/cliente.service';
 
 const MisEquipos = () => {
   const { data, deleteItem, removeEquipoFromCliente } = useContext(DataContext);
@@ -16,6 +17,7 @@ const MisEquipos = () => {
   const [clienteActual, setClienteActual] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [equipoToDelete, setEquipoToDelete] = useState(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Utility function to reset localStorage if needed (for debugging)
   const resetLocalStorage = () => {
@@ -24,67 +26,67 @@ const MisEquipos = () => {
     window.location.reload();
   };
 
+  // Cargar información del cliente desde el backend
   useEffect(() => {
-    console.log('🔍 === DEBUGGING MIS EQUIPOS - DATA FLOW ===');
-    console.log('👤 Usuario logueado:', user);
-    console.log('📋 data.clientes:', data.clientes);
-    console.log('🔧 data.equipos:', data.equipos);
-    
-    // Buscar el cliente actual basándose en el usuario logueado
-    const cliente = data.clientes.find(c => c.usuario === user.username);
-    console.log('🔍 Cliente encontrado:', cliente);
-    
-    if (cliente) {
-      console.log('✅ Cliente encontrado con equipos:', cliente.equipos);
-      setClienteActual(cliente);
-    } else {
-      console.log('⚠️ Cliente no encontrado, usando datos estáticos');
-      // Datos estáticos de fallback si no se encuentra cliente
-      const clienteEstatico = {
-        id: 'cliente-demo',
-        usuario: user?.username || 'cliente',
-        nombre: 'Cliente',
-        apellido: 'Demo',
-        razonSocial: 'Empresa Demo S.A.C.',
-        equipos: []
-      };
-      console.log('📝 Cliente estático creado:', clienteEstatico);
-      setClienteActual(clienteEstatico);
-    }
-  }, [data.clientes, user]);
+    const loadClienteData = async () => {
+      console.log('🔍 === MIS EQUIPOS - CARGA DE DATOS ===');
+      console.log('👤 Usuario logueado:', user);
+      
+      if (!user || (user.userType !== 'cliente' && user.role !== 'CLIENTE')) {
+        console.log('❌ Usuario no es cliente');
+        setIsLoadingData(false);
+        return;
+      }
 
-  // Método 1: Filtrar por lista de equipos del cliente
-  const misEquipos = clienteActual 
-    ? data.equipos.filter(e => clienteActual.equipos && clienteActual.equipos.includes(e.id))
-    : [];
+      try {
+        setIsLoadingData(true);
+        console.log('🔄 Cargando información del cliente desde backend...');
+        
+        const miInfoResponse = await clienteService.getMe();
+        
+        if (miInfoResponse.success && miInfoResponse.data) {
+          console.log('✅ Mi información cargada en MisEquipos:', miInfoResponse.data);
+          console.log('🔧 Equipos encontrados:', miInfoResponse.data.equipos?.length || 0);
+          setClienteActual(miInfoResponse.data);
+        } else {
+          console.log('⚠️ No se pudo cargar mi información, usando fallback');
+          // Fallback con datos estáticos
+          const clienteEstatico = {
+            id: 'cliente-demo',
+            usuario: user?.username || 'cliente',
+            nombre: 'Cliente',
+            apellido: 'Demo',
+            razonSocial: 'Empresa Demo S.A.C.',
+            equipos: []
+          };
+          setClienteActual(clienteEstatico);
+        }
+      } catch (error) {
+        console.error('❌ Error cargando datos del cliente:', error);
+        setClienteActual(null);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
 
-  // Método 2: Filtrar por clienteId directamente (alternativo)
-  const misEquiposAlt = clienteActual 
-    ? data.equipos.filter(e => e.clienteId === clienteActual.id)
-    : [];
+    loadClienteData();
+  }, [user]);
 
+  // Usar directamente los equipos del cliente que vienen del backend
+  const misEquipos = clienteActual?.equipos || [];
+  
   console.log('🔍 === DEBUGGING EQUIPOS FILTERING ===');
   console.log('👤 clienteActual:', clienteActual);
   console.log('📋 clienteActual.equipos:', clienteActual?.equipos);
-  console.log('🔧 data.equipos:', data.equipos);
-  console.log('🎯 misEquipos (método 1):', misEquipos);
-  console.log('🎯 misEquiposAlt (método 2):', misEquiposAlt);
-  console.log('🔍 misEquipos (filtrado por equipos array):', misEquipos);
+  console.log('🎯 misEquipos (desde backend):', misEquipos);
   console.log('📊 misEquipos.length:', misEquipos.length);
-  console.log('🔍 misEquiposAlt (filtrado por clienteId):', misEquiposAlt);
-  console.log('📊 misEquiposAlt.length:', misEquiposAlt.length);
-  
-  // Usar el método alternativo si el principal no encuentra equipos
-  const equiposToUse = misEquipos.length > 0 ? misEquipos : misEquiposAlt;
-  console.log('🎯 Equipos finales a usar:', equiposToUse);
-  console.log('📊 equiposToUse.length:', equiposToUse.length);
 
-  const filteredEquipos = equiposToUse.filter(equipo => {
+  const filteredEquipos = misEquipos.filter(equipo => {
     const matchesSearch = (equipo.marca?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
                          (equipo.modelo?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
                          (equipo.ubicacion?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     const matchesTipo = filterTipo === 'todos' || equipo.tipo === filterTipo;
-    const matchesEstado = filterEstado === 'todos' || equipo.estado === filterEstado;
+    const matchesEstado = filterEstado === 'todos' || equipo.estadoOperativo === filterEstado;
     
     return matchesSearch && matchesTipo && matchesEstado;
   });
@@ -132,6 +134,18 @@ const MisEquipos = () => {
     }
   };
 
+  // Mostrar indicador de carga
+  if (isLoadingData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando mis equipos...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -142,14 +156,6 @@ const MisEquipos = () => {
               <h1 className="text-3xl font-light text-gray-900 mb-2">Mis Equipos</h1>
               <p className="text-gray-500">Gestiona y monitorea el estado de tus equipos de refrigeración</p>
             </div>
-            {/* Debug button - remove in production */}
-            <button 
-              onClick={resetLocalStorage}
-              className="px-3 py-1 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
-              title="Reset localStorage (Debug)"
-            >
-              🔄 Reset Data
-            </button>
           </div>
         </div>
 
@@ -159,7 +165,7 @@ const MisEquipos = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Operativos</p>
-                <p className="text-2xl font-light text-gray-900">{equiposToUse.filter(e => e.estado === 'operativo').length}</p>
+                <p className="text-2xl font-light text-gray-900">{filteredEquipos.filter(e => e.estadoOperativo === 'operativo').length}</p>
               </div>
               <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,7 +178,7 @@ const MisEquipos = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">En mantenimiento</p>
-                <p className="text-2xl font-light text-gray-900">{equiposToUse.filter(e => e.estado === 'mantenimiento').length}</p>
+                <p className="text-2xl font-light text-gray-900">{filteredEquipos.filter(e => e.estadoOperativo === 'mantenimiento').length}</p>
               </div>
               <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,7 +192,7 @@ const MisEquipos = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Total equipos</p>
-                <p className="text-2xl font-light text-gray-900">{equiposToUse.length}</p>
+                <p className="text-2xl font-light text-gray-900">{filteredEquipos.length}</p>
               </div>
               <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,17 +317,17 @@ const MisEquipos = () => {
                   
                   <div className="absolute top-4 right-4 z-10">
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${
-                      equipo.estado === 'operativo' ? 'bg-green-100/90 text-green-800' : 
-                      equipo.estado === 'mantenimiento' ? 'bg-amber-100/90 text-amber-800' : 
+                      equipo.estadoOperativo === 'operativo' ? 'bg-green-100/90 text-green-800' : 
+                      equipo.estadoOperativo === 'mantenimiento' ? 'bg-amber-100/90 text-amber-800' : 
                       'bg-red-100/90 text-red-800'
                     }`}>
                       <span className={`w-2 h-2 rounded-full ${
-                        equipo.estado === 'operativo' ? 'bg-green-500' : 
-                        equipo.estado === 'mantenimiento' ? 'bg-amber-500' : 
+                        equipo.estadoOperativo === 'operativo' ? 'bg-green-500' : 
+                        equipo.estadoOperativo === 'mantenimiento' ? 'bg-amber-500' : 
                         'bg-red-500'
                       }`}></span>
-                      {equipo.estado === 'operativo' ? 'Operativo' : 
-                       equipo.estado === 'mantenimiento' ? 'Mantenimiento' : 'Reparación'}
+                      {equipo.estadoOperativo === 'operativo' ? 'Operativo' : 
+                       equipo.estadoOperativo === 'mantenimiento' ? 'Mantenimiento' : 'Reparación'}
                     </span>
                   </div>
                   
@@ -340,7 +346,7 @@ const MisEquipos = () => {
                   <div className="space-y-3 mb-6">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">Serial</span>
-                      <span className="font-mono text-gray-900">{equipo.serial}</span>
+                      <span className="font-mono text-gray-900">{equipo.numeroSerie}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">Capacidad</span>
@@ -351,13 +357,13 @@ const MisEquipos = () => {
                       <span className="text-gray-900">{equipo.ubicacion}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">Último servicio</span>
+                      <span className="text-gray-500">Fecha instalación</span>
                       <span className="text-gray-900">
-                        {new Date(equipo.ultimoServicio).toLocaleDateString('es-ES', { 
+                        {equipo.fechaInstalacion ? new Date(equipo.fechaInstalacion).toLocaleDateString('es-ES', { 
                           day: '2-digit', 
                           month: 'short',
                           year: 'numeric'
-                        })}
+                        }) : 'No registrada'}
                       </span>
                     </div>
                   </div>
@@ -406,7 +412,7 @@ const MisEquipos = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serial</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ubicación</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Último Servicio</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Instalación</th>
                     <th className="relative px-6 py-3"><span className="sr-only">Acciones</span></th>
                   </tr>
                 </thead>
@@ -424,32 +430,32 @@ const MisEquipos = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-mono text-sm text-gray-900">{equipo.serial}</span>
+                        <span className="font-mono text-sm text-gray-900">{equipo.numeroSerie}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {equipo.ubicacion}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          equipo.estado === 'operativo' ? 'bg-green-100 text-green-800' : 
-                          equipo.estado === 'mantenimiento' ? 'bg-amber-100 text-amber-800' : 
+                          equipo.estadoOperativo === 'operativo' ? 'bg-green-100 text-green-800' : 
+                          equipo.estadoOperativo === 'mantenimiento' ? 'bg-amber-100 text-amber-800' : 
                           'bg-red-100 text-red-800'
                         }`}>
                           <span className={`w-2 h-2 rounded-full ${
-                            equipo.estado === 'operativo' ? 'bg-green-500' : 
-                            equipo.estado === 'mantenimiento' ? 'bg-amber-500' : 
+                            equipo.estadoOperativo === 'operativo' ? 'bg-green-500' : 
+                            equipo.estadoOperativo === 'mantenimiento' ? 'bg-amber-500' : 
                             'bg-red-500'
                           }`}></span>
-                          {equipo.estado === 'operativo' ? 'Operativo' : 
-                           equipo.estado === 'mantenimiento' ? 'Mantenimiento' : 'Reparación'}
+                          {equipo.estadoOperativo === 'operativo' ? 'Operativo' : 
+                           equipo.estadoOperativo === 'mantenimiento' ? 'Mantenimiento' : 'Reparación'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(equipo.ultimoServicio).toLocaleDateString('es-ES', {
+                        {equipo.fechaInstalacion ? new Date(equipo.fechaInstalacion).toLocaleDateString('es-ES', {
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric'
-                        })}
+                        }) : 'No registrada'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button 
@@ -488,6 +494,19 @@ const MisEquipos = () => {
             equipo={selectedEquipo}
             clienteId={clienteActual?.id}
             onClose={() => setShowModal(false)}
+            onSave={async (nuevoEquipo) => {
+              console.log('✅ Equipo guardado exitosamente:', nuevoEquipo);
+              // Recargar datos del cliente para mostrar el nuevo equipo
+              try {
+                const miInfoResponse = await clienteService.getMe();
+                if (miInfoResponse.success && miInfoResponse.data) {
+                  console.log('🔄 Datos del cliente actualizados:', miInfoResponse.data);
+                  setClienteActual(miInfoResponse.data);
+                }
+              } catch (error) {
+                console.error('❌ Error recargando datos:', error);
+              }
+            }}
           />
         </Modal>
 
@@ -513,7 +532,7 @@ const MisEquipos = () => {
                     ¿Está seguro que desea eliminar el equipo <strong>{equipoToDelete.marca} {equipoToDelete.modelo}</strong>?
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
-                    Serial: {equipoToDelete.serial}
+                    Serial: {equipoToDelete.numeroSerie}
                   </p>
                 </div>
               )}

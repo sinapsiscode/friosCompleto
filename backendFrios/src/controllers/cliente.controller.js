@@ -4,6 +4,77 @@ const { deleteOldFile } = require('../config/upload');
 const { autoFixImagePaths } = require('../utils/imagePathFixer');
 
 const clienteController = {
+  // Obtener información del cliente autenticado
+  getMe: async (req, res) => {
+    try {
+      console.log('👤 === GET ME - INICIO ===');
+      console.log('🔍 req.user completo:', req.user);
+      console.log('🆔 req.user.userId:', req.user?.userId);
+      console.log('🆔 req.user.id:', req.user?.id);
+      
+      const userId = req.user.userId || req.user.id;
+      console.log('🎯 userId a usar:', userId);
+      
+      if (!userId) {
+        console.log('❌ No se encontró userId en req.user');
+        return res.status(400).json({
+          success: false,
+          message: 'Usuario no identificado correctamente'
+        });
+      }
+      
+      console.log('🔍 Buscando cliente con userId:', userId);
+      
+      const cliente = await prisma.cliente.findUnique({
+        where: { userId },
+        include: {
+          usuario: {
+            select: { id: true, username: true, email: true, isActive: true }
+          },
+          equipos: {
+            where: { isActive: true },
+            orderBy: { createdAt: 'desc' }
+          }
+        }
+      });
+
+      console.log('📋 Cliente encontrado:', cliente ? 'SÍ' : 'NO');
+      if (cliente) {
+        console.log('✅ Cliente datos:', {
+          id: cliente.id,
+          nombre: cliente.nombre,
+          apellido: cliente.apellido,
+          equiposCount: cliente.equipos?.length || 0
+        });
+      }
+
+      if (!cliente) {
+        console.log('❌ Cliente no encontrado para userId:', userId);
+        return res.status(404).json({
+          success: false,
+          message: 'Cliente no encontrado'
+        });
+      }
+
+      // Reparar ruta de imagen automáticamente
+      const clienteWithFixedPath = autoFixImagePaths(cliente, 'clientes');
+
+      console.log('✅ Enviando respuesta exitosa con cliente:', clienteWithFixedPath.id);
+      res.json({
+        success: true,
+        data: clienteWithFixedPath
+      });
+    } catch (error) {
+      console.error('💥 Error al obtener información del cliente:', error);
+      console.error('📍 Stack trace:', error.stack);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  },
+
   // Obtener todos los clientes
   getAll: async (req, res) => {
     try {

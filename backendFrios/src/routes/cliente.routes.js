@@ -9,6 +9,12 @@ const router = express.Router();
 // Todas las rutas requieren autenticación
 router.use(authenticateToken);
 
+// GET /api/clientes/me - Obtener información del cliente autenticado
+router.get('/me',
+  requireRole(['CLIENTE']),
+  clienteController.getMe
+);
+
 // GET /api/clientes - Obtener todos los clientes
 router.get('/', 
   requireRole(['ADMIN', 'TECNICO']),

@@ -30,6 +30,10 @@ const servicioController = {
   // Obtener todos los servicios
   getAll: async (req, res) => {
     try {
+      console.log('📋 === GET ALL SERVICIOS ===');
+      console.log('👤 Usuario:', req.user);
+      console.log('🔍 Query params:', req.query);
+
       const { 
         page = 1, 
         limit = 10, 
@@ -42,6 +46,35 @@ const servicioController = {
         fechaFin 
       } = req.query;
       const skip = (page - 1) * limit;
+
+      // Si es un cliente, solo puede ver sus propios servicios
+      let finalClienteId = clienteId;
+      if (req.user.role === 'CLIENTE') {
+        console.log('🔍 Es cliente, buscando perfil...');
+        try {
+          // Buscar el perfil del cliente basado en el userId
+          const clientePerfil = await prisma.cliente.findUnique({
+            where: { userId: req.user.id }
+          });
+          console.log('👤 Perfil encontrado:', clientePerfil);
+          if (clientePerfil) {
+            finalClienteId = clientePerfil.id;
+            console.log('✅ Using clienteId:', finalClienteId);
+          } else {
+            console.log('❌ No se encontró perfil del cliente');
+            return res.status(404).json({
+              success: false,
+              message: 'Perfil de cliente no encontrado'
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error buscando perfil del cliente:', error);
+          return res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor'
+          });
+        }
+      }
 
       const where = {
         AND: [
@@ -70,11 +103,14 @@ const servicioController = {
           estado ? { estado } : {},
           prioridad ? { prioridad } : {},
           tecnicoId ? { tecnicoId: parseInt(tecnicoId) } : {},
-          clienteId ? { equipo: { clienteId: parseInt(clienteId) } } : {},
+          finalClienteId ? { clienteId: parseInt(finalClienteId) } : {},
           fechaInicio ? { fechaProgramada: { gte: new Date(fechaInicio) } } : {},
           fechaFin ? { fechaProgramada: { lte: new Date(fechaFin) } } : {}
         ]
       };
+
+      console.log('🔍 Where clause final:', JSON.stringify(where, null, 2));
+      console.log('📊 Skip:', skip, 'Limit:', limit);
 
       const [servicios, total] = await Promise.all([
         prisma.servicio.findMany({
@@ -111,6 +147,10 @@ const servicioController = {
         }),
         prisma.servicio.count({ where })
       ]);
+
+      console.log('✅ Servicios encontrados:', servicios.length);
+      console.log('📊 Total count:', total);
+      console.log('📋 Servicios IDs:', servicios.map(s => ({ id: s.id, clienteId: s.clienteId })));
 
       res.json({
         success: true,

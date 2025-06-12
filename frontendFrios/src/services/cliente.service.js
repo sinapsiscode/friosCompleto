@@ -1,6 +1,27 @@
 import api from './api';
 
 const clienteService = {
+  // Obtener información del cliente autenticado
+  async getMe() {
+    try {
+      console.log('🔄 Cliente Service - Obteniendo mi información...');
+      const response = await api.get('/api/clientes/me');
+      console.log('📡 Respuesta del servidor (getMe):', response);
+      console.log('📦 Datos recibidos (getMe):', response.data);
+      
+      if (response.data.success) {
+        console.log('✅ Mi información procesada:', response.data.data);
+        return response.data;
+      } else {
+        console.log('❌ Error en respuesta getMe:', response.data.message);
+        return { success: false, data: null, message: response.data.message };
+      }
+    } catch (error) {
+      console.error('❌ Error en cliente.service.getMe:', error);
+      return { success: false, data: null, message: 'Error de conexión' };
+    }
+  },
+
   // Obtener todos los clientes
   async getAll(params = {}) {
     try {
