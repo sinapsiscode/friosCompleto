@@ -25,6 +25,7 @@ const repuestoRoutes = require('./src/routes/repuesto.routes');
 const repuestoFormularioRoutes = require('./src/routes/repuestoFormulario.routes');
 const herramientaRoutes = require('./src/routes/herramienta.routes');
 const programacionRoutes = require('./src/routes/programacion.routes');
+const evaluacionRoutes = require('./src/routes/evaluacion.routes');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -115,6 +116,7 @@ app.use('/api/repuestos', repuestoRoutes);
 app.use('/api/repuestos-formulario', repuestoFormularioRoutes);
 app.use('/api/herramientas', herramientaRoutes);
 app.use('/api/programaciones', programacionRoutes);
+app.use('/api/evaluaciones', evaluacionRoutes);
 
 // Ruta para 404
 app.use('*', (req, res) => {

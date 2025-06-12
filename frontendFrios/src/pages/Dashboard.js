@@ -7,6 +7,7 @@ import AuthContext from '../context/AuthContext';
 // Admin Pages
 import AdminDashboard from './Admin/AdminDashboard';
 import Servicios from './Admin/Servicios';
+import Programaciones from './Admin/Programaciones';
 import Tecnicos from './Admin/Tecnicos';
 import Clientes from './Admin/Clientes';
 import RepuestosFormulario from './Admin/RepuestosFormulario';
@@ -42,6 +43,7 @@ const Dashboard = () => {
           <>
             <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="/servicios" element={<Servicios />} />
+            <Route path="/programaciones" element={<Programaciones />} />
             <Route path="/solicitar-servicio" element={<SolicitarServicio />} />
             <Route path="/tecnicos" element={<Tecnicos />} />
             <Route path="/clientes" element={<Clientes />} />

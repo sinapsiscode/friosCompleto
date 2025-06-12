@@ -10,6 +10,7 @@ const Sidebar = ({ collapsed, toggleSidebar }) => {
   const adminMenu = [
     { path: '/dashboard', icon: 'fa-tachometer-alt', label: 'Dashboard' },
     { path: '/servicios', icon: 'fa-tools', label: 'Órdenes de Servicio' },
+    { path: '/programaciones', icon: 'fa-calendar-alt', label: 'Programaciones' },
     { path: '/solicitar-servicio', icon: 'fa-concierge-bell', label: 'Solicitar Orden de Servicio' },
     { path: '/tecnicos', icon: 'fa-user-cog', label: 'Técnicos' },
     { path: '/clientes', icon: 'fa-users', label: 'Clientes' },

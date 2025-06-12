@@ -41,51 +41,53 @@ model Administrador {
 }
 
 model Tecnico {
-  id              Int        @id @default(autoincrement())
-  userId          String     @unique
+  id              Int            @id @default(autoincrement())
+  userId          String         @unique
   nombre          String
   apellido        String
-  email           String     @unique
+  email           String         @unique
   telefono        String?
   direccion       String?
   especialidad    String?
-  disponibilidad  String?    @default("DISPONIBLE")
-  isActive        Boolean    @default(true)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  disponibilidad  String?        @default("DISPONIBLE")
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   certificaciones String?
   distrito        String?
-  dni             String?    @unique
-  experiencia     Int?       @default(0)
+  dni             String?        @unique
+  experiencia     Int?           @default(0)
   profileImage    String?
+  programaciones  Programacion[]
   servicios       Servicio[]
-  usuario         Usuario    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usuario         Usuario        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("tecnicos")
 }
 
 model Cliente {
-  id           Int        @id @default(autoincrement())
-  userId       String     @unique
-  nombre       String
-  apellido     String
-  email        String     @unique
-  telefono     String?
-  direccion    String?
-  ciudad       String?
-  distrito     String?
-  isActive     Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  dni          String?
-  razonSocial  String?
-  ruc          String?    @unique
-  sector       String?
-  tipo         String?    @default("persona")
-  profileImage String?
-  usuario      Usuario    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  equipos      Equipo[]
-  servicios    Servicio[]
+  id             Int            @id @default(autoincrement())
+  userId         String         @unique
+  nombre         String
+  apellido       String
+  email          String         @unique
+  telefono       String?
+  direccion      String?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  dni            String?
+  razonSocial    String?
+  ruc            String?        @unique
+  sector         String?
+  tipo           String?        @default("persona")
+  profileImage   String?
+  ciudad         String?
+  distrito       String?
+  usuario        Usuario        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  equipos        Equipo[]
+  programaciones Programacion[]
+  servicios      Servicio[]
 
   @@map("clientes")
 }
@@ -116,33 +118,44 @@ model Equipo {
 }
 
 model Servicio {
-  id                String           @id
-  clienteId         Int
-  equipoId          Int?
-  tecnicoId         Int?
-  tipoServicio      String
-  descripcion       String
-  fechaSolicitud    DateTime         @default(now())
-  fechaProgramada   DateTime?
-  fechaCompletado   DateTime?
-  estado            EstadoServicio   @default(PENDIENTE)
-  prioridad         Prioridad        @default(MEDIA)
-  observaciones     String?
-  isActive          Boolean          @default(true)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  detalles          Json?
-  evaluacion        Json?
-  fechaInicio       DateTime?
-  motivoCancelacion String?
-  numeroOrden       String?          @unique
-  horaInicio        String?
-  horaFin           String?
-  rangoHorario      String?
-  cliente           Cliente          @relation(fields: [clienteId], references: [id])
-  equipo            Equipo?          @relation(fields: [equipoId], references: [id])
-  tecnico           Tecnico?         @relation(fields: [tecnicoId], references: [id])
-  equiposServicio   ServicioEquipo[]
+  id                      String              @id
+  clienteId               Int
+  equipoId                Int?
+  tecnicoId               Int?
+  tipoServicio            String
+  descripcion             String
+  fechaSolicitud          DateTime            @default(now())
+  fechaProgramada         DateTime?
+  fechaCompletado         DateTime?
+  estado                  EstadoServicio      @default(PENDIENTE)
+  prioridad               Prioridad           @default(MEDIA)
+  observaciones           String?
+  isActive                Boolean             @default(true)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  detalles                Json?
+  evaluacion              Json?
+  fechaInicio             DateTime?
+  motivoCancelacion       String?
+  numeroOrden             String?             @unique
+  horaFin                 String?
+  horaInicio              String?
+  rangoHorario            String?
+  programacionId          Int?
+  // Nuevos campos para completar servicio
+  trabajosRealizados      String?             @map("trabajos_realizados")
+  recomendaciones         String?
+  proximoMantenimiento    DateTime?           @map("proximo_mantenimiento")
+  frecuenciaMantenimiento String?             @map("frecuencia_mantenimiento")
+  
+  cliente                 Cliente             @relation(fields: [clienteId], references: [id])
+  equipo                  Equipo?             @relation(fields: [equipoId], references: [id])
+  programacion            Programacion?       @relation(fields: [programacionId], references: [id])
+  tecnico                 Tecnico?            @relation(fields: [tecnicoId], references: [id])
+  equiposServicio         ServicioEquipo[]
+  // Nuevas relaciones
+  repuestosUtilizados     ServicioRepuesto[]
+  fotos                   ServicioFoto[]
 
   @@map("servicios")
 }
@@ -194,14 +207,58 @@ model Herramienta {
 }
 
 model RepuestoFormulario {
-  id          Int      @id @default(autoincrement())
+  id          Int                @id @default(autoincrement())
   nombre      String
   descripcion String?
-  disponible  Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  disponible  Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  // Nueva relación
+  serviciosUtilizado ServicioRepuesto[]
 
   @@map("repuestos_formulario")
+}
+
+model Programacion {
+  id               Int                    @id @default(autoincrement())
+  clienteId        Int
+  tecnicoId        Int?
+  nombre           String
+  descripcion      String?
+  tipoServicio     String                 @default("programado")
+  frecuencia       FrecuenciaProgramacion
+  intervaloDias    Int?
+  horaInicio       String
+  horaFin          String?
+  diasSemana       Json?
+  diaMes           Int?
+  fechaInicio      DateTime
+  fechaFin         DateTime?
+  proximaEjecucion DateTime?
+  isActive         Boolean                @default(true)
+  prioridad        Prioridad              @default(MEDIA)
+  observaciones    String?
+  equipos          Json
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  ultimaEjecucion  DateTime?
+  cliente          Cliente                @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  tecnico          Tecnico?               @relation(fields: [tecnicoId], references: [id])
+  servicios        Servicio[]
+
+  @@map("programaciones")
+}
+
+enum FrecuenciaProgramacion {
+  DIARIO
+  SEMANAL
+  QUINCENAL
+  MENSUAL
+  BIMESTRAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+  PERSONALIZADO
 }
 
 enum Role {
@@ -229,4 +286,30 @@ enum Prioridad {
   MEDIA
   ALTA
   URGENTE
+}
+
+model ServicioRepuesto {
+  id          Int                @id @default(autoincrement())
+  servicioId  String             @map("servicio_id")
+  repuestoId  Int                @map("repuesto_id")
+  cantidad    Int                @default(1)
+  createdAt   DateTime           @default(now()) @map("created_at")
+  
+  servicio    Servicio           @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  repuesto    RepuestoFormulario @relation(fields: [repuestoId], references: [id])
+  
+  @@map("servicio_repuestos")
+}
+
+model ServicioFoto {
+  id              Int      @id @default(autoincrement())
+  servicioId      String   @map("servicio_id")
+  tipo            String
+  archivoPath     String?  @map("archivo_path")
+  nombreOriginal  String?  @map("nombre_original")
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  servicio        Servicio @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  
+  @@map("servicio_fotos")
 }

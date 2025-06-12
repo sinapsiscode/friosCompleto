@@ -630,10 +630,49 @@ const servicioController = {
   completar: async (req, res) => {
     try {
       const { id } = req.params;
-      const { observacionesFinales, evaluacion, repuestosUsados, tiempoEmpleado } = req.body;
+      // Extraer datos del cuerpo de la solicitud
+      let {
+        // Nuevos campos del formulario
+        trabajosRealizados,
+        repuestosUtilizados, // Array de IDs
+        recomendaciones,
+        proximoMantenimiento,
+        frecuenciaMantenimiento,
+        fotosAntes,
+        fotosDespues,
+        fotos,
+        // Campos existentes (mantener compatibilidad)
+        observacionesFinales,
+        evaluacion,
+        repuestosUsados, // Para compatibilidad
+        tiempoEmpleado
+      } = req.body;
+
+      // Si vienen como strings JSON desde FormData, parsearlos
+      try {
+        if (typeof repuestosUtilizados === 'string') {
+          repuestosUtilizados = JSON.parse(repuestosUtilizados);
+        }
+        if (typeof fotosAntes === 'string') {
+          fotosAntes = JSON.parse(fotosAntes);
+        }
+        if (typeof fotosDespues === 'string') {
+          fotosDespues = JSON.parse(fotosDespues);
+        }
+        if (typeof fotos === 'string') {
+          fotos = JSON.parse(fotos);
+        }
+      } catch (parseError) {
+        console.log('⚠️ Error parsing JSON fields:', parseError.message);
+        // Continuar con los valores originales si no se pueden parsear
+      }
+
+      console.log('🔧 === COMPLETAR SERVICIO ===');
+      console.log('📝 ID del servicio:', id);
+      console.log('📝 Datos recibidos:', JSON.stringify(req.body, null, 2));
 
       const servicio = await prisma.servicio.findUnique({
-        where: { id: parseInt(id) }
+        where: { id: id }
       });
 
       if (!servicio) {
@@ -650,44 +689,160 @@ const servicioController = {
         });
       }
 
-      const servicioCompletado = await prisma.servicio.update({
-        where: { id: parseInt(id) },
-        data: {
-          estado: 'COMPLETADO',
-          fechaCompletado: new Date(),
-          observaciones: observacionesFinales || servicio.observaciones,
-          evaluacion: evaluacion || servicio.evaluacion,
-          detalles: {
-            ...(servicio.detalles || {}),
-            repuestosUsados: repuestosUsados || [],
-            tiempoEmpleado: tiempoEmpleado || null,
-            fechaFinalizacion: new Date().toISOString()
-          }
-        },
-        include: {
-          equipo: {
-            include: {
-              cliente: {
-                select: { id: true, nombre: true, apellido: true, telefono: true, email: true }
-              }
+      console.log('📋 Servicio encontrado, iniciando transacción...');
+
+      // Usar transacción para manejar múltiples tablas
+      const resultado = await prisma.$transaction(async (tx) => {
+        // 1. Actualizar servicio principal con nuevos campos
+        const servicioActualizado = await tx.servicio.update({
+          where: { id: id },
+          data: {
+            estado: 'COMPLETADO',
+            fechaCompletado: new Date(),
+            // Nuevos campos específicos
+            trabajosRealizados: trabajosRealizados || null,
+            recomendaciones: recomendaciones || null,
+            proximoMantenimiento: proximoMantenimiento ? new Date(proximoMantenimiento) : null,
+            frecuenciaMantenimiento: frecuenciaMantenimiento || null,
+            // Mantener compatibilidad con campos existentes
+            observaciones: observacionesFinales || servicio.observaciones,
+            evaluacion: evaluacion || servicio.evaluacion,
+            detalles: {
+              ...(servicio.detalles || {}),
+              repuestosUsados: repuestosUsados || [],
+              tiempoEmpleado: tiempoEmpleado || null,
+              fechaFinalizacion: new Date().toISOString()
             }
-          },
-          tecnico: {
-            select: { id: true, nombre: true, apellido: true }
           }
+        });
+
+        console.log('✅ Servicio principal actualizado');
+
+        // 2. Guardar repuestos utilizados en tabla separada
+        if (repuestosUtilizados && repuestosUtilizados.length > 0) {
+          console.log('💊 Guardando repuestos utilizados:', repuestosUtilizados);
+          
+          // Eliminar repuestos existentes para este servicio (si los hay)
+          await tx.servicioRepuesto.deleteMany({
+            where: { servicioId: id }
+          });
+
+          // Crear nuevos registros de repuestos
+          const repuestosData = repuestosUtilizados.map(repuestoId => ({
+            servicioId: id,
+            repuestoId: parseInt(repuestoId),
+            cantidad: 1
+          }));
+          
+          await tx.servicioRepuesto.createMany({
+            data: repuestosData
+          });
+
+          console.log(`✅ ${repuestosData.length} repuestos guardados`);
         }
+
+        // 3. Guardar fotos en tabla separada
+        const fotosParaGuardar = [];
+        
+        // Fotos ANTES del servicio
+        if (fotosAntes && fotosAntes.length > 0) {
+          console.log('📷 Procesando fotos ANTES:', fotosAntes.length);
+          fotosAntes.forEach((foto, index) => {
+            fotosParaGuardar.push({
+              servicioId: id,
+              tipo: 'ANTES',
+              archivoPath: typeof foto === 'string' ? foto : (foto.path || `foto_antes_${index}.jpg`),
+              nombreOriginal: typeof foto === 'string' ? `foto_antes_${index}.jpg` : (foto.name || `foto_antes_${index}.jpg`)
+            });
+          });
+        }
+        
+        // Fotos DESPUÉS del servicio
+        if (fotosDespues && fotosDespues.length > 0) {
+          console.log('📷 Procesando fotos DESPUÉS:', fotosDespues.length);
+          fotosDespues.forEach((foto, index) => {
+            fotosParaGuardar.push({
+              servicioId: id,
+              tipo: 'DESPUES',
+              archivoPath: typeof foto === 'string' ? foto : (foto.path || `foto_despues_${index}.jpg`),
+              nombreOriginal: typeof foto === 'string' ? `foto_despues_${index}.jpg` : (foto.name || `foto_despues_${index}.jpg`)
+            });
+          });
+        }
+
+        // Fotos adicionales
+        if (fotos && fotos.length > 0) {
+          console.log('📷 Procesando fotos adicionales:', fotos.length);
+          fotos.forEach((foto, index) => {
+            fotosParaGuardar.push({
+              servicioId: id,
+              tipo: 'ADICIONAL',
+              archivoPath: typeof foto === 'string' ? foto : (foto.path || `foto_adicional_${index}.jpg`),
+              nombreOriginal: typeof foto === 'string' ? `foto_adicional_${index}.jpg` : (foto.name || `foto_adicional_${index}.jpg`)
+            });
+          });
+        }
+
+        // Guardar todas las fotos si hay alguna
+        if (fotosParaGuardar.length > 0) {
+          console.log(`📸 Guardando ${fotosParaGuardar.length} fotos...`);
+          
+          // Eliminar fotos existentes para este servicio (si las hay)
+          await tx.servicioFoto.deleteMany({
+            where: { servicioId: id }
+          });
+
+          // Crear nuevos registros de fotos
+          await tx.servicioFoto.createMany({
+            data: fotosParaGuardar
+          });
+
+          console.log(`✅ ${fotosParaGuardar.length} fotos guardadas`);
+        }
+
+        // 4. Retornar servicio completo con todas las relaciones
+        const servicioCompleto = await tx.servicio.findUnique({
+          where: { id: id },
+          include: {
+            equipo: {
+              include: {
+                cliente: {
+                  select: { id: true, nombre: true, apellido: true, telefono: true, email: true }
+                }
+              }
+            },
+            tecnico: {
+              select: { id: true, nombre: true, apellido: true }
+            },
+            repuestosUtilizados: {
+              include: {
+                repuesto: {
+                  select: { id: true, nombre: true, descripcion: true }
+                }
+              }
+            },
+            fotos: {
+              select: { id: true, tipo: true, archivoPath: true, nombreOriginal: true, createdAt: true }
+            }
+          }
+        });
+
+        return servicioCompleto;
       });
+
+      console.log('🎉 Servicio completado exitosamente');
 
       res.json({
         success: true,
         message: 'Servicio completado exitosamente',
-        data: servicioCompletado
+        data: resultado
       });
     } catch (error) {
-      console.error('Error al completar servicio:', error);
+      console.error('❌ Error al completar servicio:', error);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Error interno del servidor',
+        error: error.message
       });
     }
   },

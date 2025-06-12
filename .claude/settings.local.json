@@ -16,7 +16,8 @@
       "Bash(find:*)",
       "Bash(npm run prisma:studio:*)",
       "Bash(sed:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npx prisma db pull:*)"
     ],
     "deny": []
   }

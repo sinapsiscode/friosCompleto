@@ -3,6 +3,7 @@ import { DataContext } from '../../context/DataContext';
 import AuthContext from '../../context/AuthContext';
 import Modal from '../../components/Common/Modal';
 import { showAlert } from '../../utils/sweetAlert';
+import evaluacionService from '../../services/evaluacion.service';
 
 const Evaluaciones = () => {
   const { data, updateItem } = useContext(DataContext);
@@ -12,39 +13,50 @@ const Evaluaciones = () => {
   const [serviciosEvaluados, setServiciosEvaluados] = useState([]);
   const [showEvaluacionModal, setShowEvaluacionModal] = useState(false);
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [evaluacion, setEvaluacion] = useState({
     calificacion: 0,
     comentario: ''
   });
 
+  // Cargar servicios para evaluar desde el backend
   useEffect(() => {
-    const cliente = data.clientes.find(c => c.usuario === user.username);
-    if (cliente) {
-      setClienteActual(cliente);
-    } else {
-      // Usar datos estáticos si no se encuentra cliente
-      const clienteEstatico = {
-        id: 'cliente-demo',
-        usuario: user?.username || 'cliente',
-        nombre: 'Cliente',
-        apellido: 'Demo',
-        razonSocial: 'Empresa Demo S.A.C.',
-        equipos: []
-      };
-      setClienteActual(clienteEstatico);
-    }
-  }, [data.clientes, user]);
+    cargarServiciosParaEvaluar();
+  }, []);
 
-  useEffect(() => {
-    if (clienteActual) {
-      const misServicios = data.servicios.filter(s => s.clienteId === clienteActual.id);
-      const pendientes = misServicios.filter(s => s.estado === 'completado' && !s.evaluacion);
-      const evaluados = misServicios.filter(s => s.estado === 'completado' && s.evaluacion);
+  const cargarServiciosParaEvaluar = async () => {
+    try {
+      setLoading(true);
+      console.log('📋 Cargando servicios para evaluar...');
       
-      setServiciosPendientesEvaluacion(pendientes.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)));
-      setServiciosEvaluados(evaluados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)));
+      const response = await evaluacionService.obtenerMisServicios();
+      
+      if (response.success) {
+        setServiciosPendientesEvaluacion(response.data.pendientes || []);
+        setServiciosEvaluados(response.data.evaluados || []);
+        console.log('✅ Servicios cargados:', response.data);
+      } else {
+        console.error('❌ Error en respuesta:', response.message);
+        showAlert('Error al cargar servicios', 'error');
+      }
+    } catch (error) {
+      console.error('❌ Error al cargar servicios:', error);
+      showAlert('Error al cargar servicios para evaluar', 'error');
+      
+      // Fallback a datos locales si falla la API
+      const cliente = data.clientes.find(c => c.usuario === user.username);
+      if (cliente) {
+        const misServicios = data.servicios.filter(s => s.clienteId === cliente.id);
+        const pendientes = misServicios.filter(s => s.estado === 'completado' && !s.evaluacion);
+        const evaluados = misServicios.filter(s => s.estado === 'completado' && s.evaluacion);
+        
+        setServiciosPendientesEvaluacion(pendientes.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)));
+        setServiciosEvaluados(evaluados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)));
+      }
+    } finally {
+      setLoading(false);
     }
-  }, [data.servicios, clienteActual]);
+  };
 
   const handleOpenEvaluacion = (servicio) => {
     setServicioSeleccionado(servicio);
@@ -52,23 +64,55 @@ const Evaluaciones = () => {
     setShowEvaluacionModal(true);
   };
 
-  const handleSubmitEvaluacion = () => {
+  const handleSubmitEvaluacion = async () => {
     if (evaluacion.calificacion === 0) {
       showAlert('Por favor seleccione una calificación', 'warning');
       return;
     }
 
-    updateItem('servicios', servicioSeleccionado.id, {
-      evaluacion: {
+    try {
+      console.log('⭐ Enviando evaluación:', {
+        servicioId: servicioSeleccionado.id,
         calificacion: evaluacion.calificacion,
-        comentario: evaluacion.comentario,
-        fecha: new Date().toISOString().split('T')[0]
-      }
-    });
+        comentario: evaluacion.comentario
+      });
 
-    setShowEvaluacionModal(false);
-    setServicioSeleccionado(null);
-    setEvaluacion({ calificacion: 0, comentario: '' });
+      const response = await evaluacionService.evaluarServicio(servicioSeleccionado.id, {
+        calificacion: evaluacion.calificacion,
+        comentario: evaluacion.comentario
+      });
+
+      if (response.success) {
+        showAlert('Evaluación enviada exitosamente', 'success');
+        
+        // Recargar los servicios para actualizar las listas
+        await cargarServiciosParaEvaluar();
+        
+        setShowEvaluacionModal(false);
+        setServicioSeleccionado(null);
+        setEvaluacion({ calificacion: 0, comentario: '' });
+      } else {
+        showAlert(response.message || 'Error al enviar evaluación', 'error');
+      }
+    } catch (error) {
+      console.error('❌ Error al enviar evaluación:', error);
+      const mensaje = error.response?.data?.message || 'Error al enviar evaluación';
+      showAlert(mensaje, 'error');
+      
+      // Fallback al método anterior si falla la API
+      updateItem('servicios', servicioSeleccionado.id, {
+        evaluacion: {
+          calificacion: evaluacion.calificacion,
+          comentario: evaluacion.comentario,
+          fecha: new Date().toISOString().split('T')[0]
+        }
+      });
+      
+      setShowEvaluacionModal(false);
+      setServicioSeleccionado(null);
+      setEvaluacion({ calificacion: 0, comentario: '' });
+      showAlert('Evaluación guardada localmente', 'info');
+    }
   };
 
   const renderStars = (rating, clickable = false, onRate = null, size = 'normal') => {
@@ -93,9 +137,29 @@ const Evaluaciones = () => {
     );
   };
 
-  // Mostrar loading mientras se establece el cliente
-  if (!clienteActual) {
-    return <div className="p-6">Cargando...</div>;
+  // Mostrar loading mientras cargan los datos
+  if (loading) {
+    return (
+      <div className="w-full min-h-screen p-4 lg:p-6 animate-fadeIn">
+        <div className="bg-gradient-to-r from-primary to-primary-dark text-white p-6 lg:p-10 rounded-xl lg:rounded-3xl mb-6 shadow-lg">
+          <div className="relative z-10">
+            <h1 className="text-2xl lg:text-4xl font-bold m-0 flex items-center gap-2 lg:gap-4">
+              <i className="fas fa-star text-xl lg:text-3xl opacity-90"></i>
+              Evaluaciones de Servicios
+            </h1>
+            <p className="text-sm lg:text-lg mt-2 opacity-90">
+              Evalúa los servicios completados y ayuda a mejorar nuestro servicio
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-center items-center py-12">
+          <div className="text-center">
+            <i className="fas fa-spinner fa-spin text-4xl text-primary mb-4"></i>
+            <p className="text-lg text-gray-600">Cargando servicios para evaluar...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

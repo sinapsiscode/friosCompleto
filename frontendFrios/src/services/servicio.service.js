@@ -232,61 +232,34 @@ const servicioService = {
         // Usar FormData para subir archivos
         const formData = new FormData();
         
-        // Agregar datos básicos del servicio
-        formData.append('observacionesFinales', datosCompletado.trabajosRealizados || datosCompletado.observacionesFinales || '');
+        // Agregar TODOS los campos que espera el backend actualizado
+        formData.append('trabajosRealizados', datosCompletado.trabajosRealizados || '');
+        formData.append('recomendaciones', datosCompletado.recomendaciones || '');
+        formData.append('proximoMantenimiento', datosCompletado.proximoMantenimiento || '');
+        formData.append('frecuenciaMantenimiento', datosCompletado.frecuenciaMantenimiento || '');
+        
+        // Agregar repuestos utilizados como JSON
+        if (datosCompletado.repuestosUtilizados && datosCompletado.repuestosUtilizados.length > 0) {
+          formData.append('repuestosUtilizados', JSON.stringify(datosCompletado.repuestosUtilizados));
+        }
+        
+        // Agregar fotos como JSON (el backend actualizado las procesa como strings base64)
+        if (datosCompletado.fotosAntes && datosCompletado.fotosAntes.length > 0) {
+          formData.append('fotosAntes', JSON.stringify(datosCompletado.fotosAntes));
+        }
+        
+        if (datosCompletado.fotosDespues && datosCompletado.fotosDespues.length > 0) {
+          formData.append('fotosDespues', JSON.stringify(datosCompletado.fotosDespues));
+        }
+        
+        if (datosCompletado.fotos && datosCompletado.fotos.length > 0) {
+          formData.append('fotos', JSON.stringify(datosCompletado.fotos));
+        }
+        
+        // Campos de compatibilidad existentes
+        formData.append('observacionesFinales', datosCompletado.observacionesFinales || '');
         formData.append('evaluacion', datosCompletado.evaluacion || '');
         formData.append('tiempoEmpleado', datosCompletado.tiempoEmpleado || '');
-        
-        // Agregar repuestos usados como JSON
-        if (datosCompletado.repuestosUtilizados && datosCompletado.repuestosUtilizados.length > 0) {
-          formData.append('repuestosUsados', JSON.stringify(datosCompletado.repuestosUtilizados));
-        }
-
-        // Agregar datos adicionales del formulario original
-        const detallesCompletos = {
-          trabajosRealizados: datosCompletado.trabajosRealizados,
-          recomendaciones: datosCompletado.recomendaciones,
-          proximoMantenimiento: datosCompletado.proximoMantenimiento,
-          frecuenciaMantenimiento: datosCompletado.frecuenciaMantenimiento,
-          configurarProgramacion: datosCompletado.configurarProgramacion
-        };
-        formData.append('detallesCompletos', JSON.stringify(detallesCompletos));
-        
-        // Agregar fotos ANTES
-        if (datosCompletado.fotosAntes) {
-          datosCompletado.fotosAntes.forEach((foto, index) => {
-            if (foto instanceof File) {
-              formData.append('fotosAntes', foto);
-            } else if (foto.data && foto.nombre) {
-              const file = base64ToFile(foto.data, `antes_${index}_${foto.nombre}`);
-              formData.append('fotosAntes', file);
-            }
-          });
-        }
-        
-        // Agregar fotos DESPUÉS
-        if (datosCompletado.fotosDespues) {
-          datosCompletado.fotosDespues.forEach((foto, index) => {
-            if (foto instanceof File) {
-              formData.append('fotosDespues', foto);
-            } else if (foto.data && foto.nombre) {
-              const file = base64ToFile(foto.data, `despues_${index}_${foto.nombre}`);
-              formData.append('fotosDespues', file);
-            }
-          });
-        }
-        
-        // Agregar fotos generales
-        if (datosCompletado.fotos) {
-          datosCompletado.fotos.forEach((foto, index) => {
-            if (foto instanceof File) {
-              formData.append('fotos', foto);
-            } else if (foto.data && foto.nombre) {
-              const file = base64ToFile(foto.data, `general_${index}_${foto.nombre}`);
-              formData.append('fotos', file);
-            }
-          });
-        }
         
         console.log('📁 Enviando con FormData (incluye archivos)');
         const response = await api.post(`/api/servicios/${servicioId}/completar`, formData, {
@@ -297,20 +270,24 @@ const servicioService = {
         console.log('✅ Servicio completado exitosamente:', response.data);
         return response.data;
       } else {
-        // Sin archivos, enviar JSON normal con todos los datos
+        // Sin archivos, enviar JSON con TODOS los campos nuevos
         const payload = {
-          observacionesFinales: datosCompletado.trabajosRealizados || datosCompletado.observacionesFinales || '',
+          // Nuevos campos principales que espera el backend
+          trabajosRealizados: datosCompletado.trabajosRealizados || '',
+          recomendaciones: datosCompletado.recomendaciones || '',
+          proximoMantenimiento: datosCompletado.proximoMantenimiento || '',
+          frecuenciaMantenimiento: datosCompletado.frecuenciaMantenimiento || '',
+          repuestosUtilizados: datosCompletado.repuestosUtilizados || [],
+          
+          // Fotos como arrays (incluso si están vacías)
+          fotosAntes: datosCompletado.fotosAntes || [],
+          fotosDespues: datosCompletado.fotosDespues || [],
+          fotos: datosCompletado.fotos || [],
+          
+          // Campos de compatibilidad existentes
+          observacionesFinales: datosCompletado.observacionesFinales || '',
           evaluacion: datosCompletado.evaluacion || '',
-          repuestosUsados: datosCompletado.repuestosUtilizados || [],
-          tiempoEmpleado: datosCompletado.tiempoEmpleado || '',
-          // Datos adicionales del formulario original
-          detallesCompletos: {
-            trabajosRealizados: datosCompletado.trabajosRealizados,
-            recomendaciones: datosCompletado.recomendaciones,
-            proximoMantenimiento: datosCompletado.proximoMantenimiento,
-            frecuenciaMantenimiento: datosCompletado.frecuenciaMantenimiento,
-            configurarProgramacion: datosCompletado.configurarProgramacion
-          }
+          tiempoEmpleado: datosCompletado.tiempoEmpleado || ''
         };
         
         console.log('📄 Enviando JSON (sin archivos)');

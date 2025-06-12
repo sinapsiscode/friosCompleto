@@ -75,7 +75,7 @@ const CalendarioServicios = ({ onBack, servicios }) => {
           {servicios.length > 0 && (
             <div className="calendario-services">
               {servicios.slice(0, 2).map((servicio, idx) => {
-                const cliente = data.clientes.find(c => c.id === servicio.clienteId);
+                const cliente = servicio.cliente || data.clientes?.find(c => c.id === servicio.clienteId);
                 const tipoServicio = servicio.tipoServicio || servicio.tipo;
                 const horaServicio = servicio.rangoHorario || servicio.horaInicio || servicio.hora || '09:00';
                 
@@ -216,9 +216,9 @@ const CalendarioServicios = ({ onBack, servicios }) => {
               ) : (
                 <div className="space-y-4">
                   {selectedServices.map(servicio => {
-                    const cliente = data.clientes.find(c => c.id === servicio.clienteId);
-                    const tecnico = data.tecnicos.find(t => t.id === servicio.tecnicoId);
-                    const equipos = servicio.equipos?.map(eId => data.equipos.find(e => e.id === eId)).filter(Boolean) || [];
+                    const cliente = servicio.cliente || data.clientes?.find(c => c.id === servicio.clienteId);
+                    const tecnico = servicio.tecnico || data.tecnicos?.find(t => t.id === servicio.tecnicoId);
+                    const equipos = servicio.equipos?.map(eId => data.equipos?.find(e => e.id === eId)).filter(Boolean) || [];
                     
                     return (
                       <div key={servicio.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">

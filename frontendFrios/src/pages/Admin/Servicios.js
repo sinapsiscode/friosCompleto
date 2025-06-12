@@ -6,6 +6,7 @@ import { showConfirm, showAlert } from '../../utils/sweetAlert';
 import servicioService from '../../services/servicio.service';
 import clienteService from '../../services/cliente.service';
 import tecnicoService from '../../services/tecnico.service';
+import programacionService from '../../services/programacion.service';
 
 const Servicios = () => {
   const { data, updateItem } = useContext(DataContext);
@@ -14,6 +15,7 @@ const Servicios = () => {
   const [servicios, setServicios] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [tecnicos, setTecnicos] = useState([]);
+  const [programaciones, setProgramaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
@@ -45,19 +47,22 @@ const Servicios = () => {
         setError(null);
         
         // Cargar todos los datos en paralelo
-        const [serviciosResponse, clientesResponse, tecnicosResponse] = await Promise.all([
+        const [serviciosResponse, clientesResponse, tecnicosResponse, programacionesResponse] = await Promise.all([
           servicioService.getAll({ limit: 100 }),
           clienteService.getAll({ limit: 100 }),
-          tecnicoService.getAll({ limit: 100 })
+          tecnicoService.getAll({ limit: 100 }),
+          programacionService.getAll({ limit: 100 })
         ]);
         
         console.log('✅ Servicios cargados:', serviciosResponse.data?.length || 0);
         console.log('✅ Clientes cargados:', clientesResponse.data?.length || 0);
         console.log('✅ Técnicos cargados:', tecnicosResponse.data?.length || 0);
+        console.log('✅ Programaciones cargadas:', programacionesResponse.data?.length || 0);
         
         setServicios(serviciosResponse.data || []);
         setClientes(clientesResponse.data || []);
         setTecnicos(tecnicosResponse.data || []);
+        setProgramaciones(programacionesResponse.data || []);
         
       } catch (error) {
         console.error('❌ Error cargando datos:', error);
@@ -68,6 +73,7 @@ const Servicios = () => {
         setServicios(data.servicios || []);
         setClientes(data.clientes || []);
         setTecnicos(data.tecnicos || []);
+        setProgramaciones([]);
       } finally {
         setLoading(false);
       }
@@ -109,6 +115,7 @@ const Servicios = () => {
   const serviciosActuales = servicios.length > 0 ? servicios : (data.servicios || []);
   const clientesActuales = clientes.length > 0 ? clientes : (data.clientes || []);
   const tecnicosActuales = tecnicos.length > 0 ? tecnicos : (data.tecnicos || []);
+  const programacionesActuales = programaciones;
 
   // Primero filtrar los servicios
   const filteredServiciosBase = serviciosActuales.filter(servicio => {
@@ -253,7 +260,8 @@ const Servicios = () => {
   };
 
   const getProgramacionInfo = (servicio) => {
-    if (servicio.tipoServicio === 'Correctivo') {
+    // Si es un servicio correctivo (reparación), mostrar "Única vez"
+    if (servicio.tipoServicio === 'correctivo' || servicio.tipoServicio === 'Correctivo') {
       return {
         text: 'Única vez',
         icon: 'fa-calendar-day',
@@ -261,32 +269,64 @@ const Servicios = () => {
       };
     }
     
-    const programacion = data.programaciones?.find(
-      p => p.clienteId === servicio.clienteId && 
-           p.equipos?.some(e => servicio.equipos?.includes(e))
-    );
-    
-    if (!programacion) {
-      return { text: '-', icon: null, detail: null };
+    // Si el servicio tiene programacionId, buscar la programación específica
+    if (servicio.programacionId) {
+      const programacion = programacionesActuales.find(p => p.id === servicio.programacionId);
+      
+      if (programacion) {
+        const frecuenciaMap = {
+          'DIARIO': 'Diario',
+          'SEMANAL': 'Semanal', 
+          'QUINCENAL': 'Quincenal',
+          'MENSUAL': 'Mensual',
+          'BIMESTRAL': 'Bimestral',
+          'TRIMESTRAL': 'Trimestral',
+          'SEMESTRAL': 'Semestral',
+          'ANUAL': 'Anual',
+          'PERSONALIZADO': 'Personalizado'
+        };
+        
+        return {
+          text: frecuenciaMap[programacion.frecuencia] || programacion.frecuencia,
+          icon: 'fa-redo',
+          detail: programacion.proximaEjecucion ? 
+            `Próximo: ${new Date(programacion.proximaEjecucion).toLocaleDateString()}` : null
+        };
+      }
     }
     
-    const frecuenciaMap = {
-      'diario': 'Diario',
-      'semanal': 'Semanal',
-      'quincenal': 'Quincenal',
-      'mensual': 'Mensual',
-      'bimestral': 'Bimestral',
-      'trimestral': 'Trimestral',
-      'semestral': 'Semestral',
-      'anual': 'Anual',
-      'personalizado': 'Personalizado'
-    };
+    // Si es un servicio programado pero no tiene programacionId, buscar por cliente y equipos
+    if (servicio.tipoServicio === 'programado') {
+      const programacion = programacionesActuales.find(
+        p => p.clienteId === servicio.clienteId && 
+             p.equipos?.some && 
+             servicio.detalles?.equiposSeleccionados?.some &&
+             p.equipos.some(e => servicio.detalles.equiposSeleccionados.includes(e))
+      );
+      
+      if (programacion) {
+        const frecuenciaMap = {
+          'DIARIO': 'Diario',
+          'SEMANAL': 'Semanal',
+          'QUINCENAL': 'Quincenal', 
+          'MENSUAL': 'Mensual',
+          'BIMESTRAL': 'Bimestral',
+          'TRIMESTRAL': 'Trimestral',
+          'SEMESTRAL': 'Semestral',
+          'ANUAL': 'Anual',
+          'PERSONALIZADO': 'Personalizado'
+        };
+        
+        return {
+          text: frecuenciaMap[programacion.frecuencia] || programacion.frecuencia,
+          icon: 'fa-redo',
+          detail: null
+        };
+      }
+    }
     
-    return {
-      text: frecuenciaMap[programacion.frecuencia] || programacion.tipo,
-      icon: 'fa-redo',
-      detail: null
-    };
+    // Si no se encuentra programación, mostrar "-"
+    return { text: '-', icon: null, detail: null };
   };
 
   const handleViewDetails = (servicio) => {

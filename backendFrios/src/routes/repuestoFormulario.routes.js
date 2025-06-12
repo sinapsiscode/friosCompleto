@@ -9,31 +9,31 @@ router.use(authenticateToken);
 
 // GET /api/repuestos-formulario - Obtener todos los repuestos del formulario
 router.get('/', 
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'TECNICO']),
   repuestoFormularioController.getAll
 );
 
 // GET /api/repuestos-formulario/:id - Obtener repuesto por ID
 router.get('/:id',
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'TECNICO']),
   repuestoFormularioController.getById
 );
 
 // POST /api/repuestos-formulario - Crear nuevo repuesto
 router.post('/',
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'TECNICO']),
   repuestoFormularioController.create
 );
 
 // PUT /api/repuestos-formulario/:id - Actualizar repuesto
 router.put('/:id',
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'TECNICO']),
   repuestoFormularioController.update
 );
 
 // DELETE /api/repuestos-formulario/:id - Eliminar repuesto
 router.delete('/:id',
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'TECNICO']),
   repuestoFormularioController.delete
 );
 

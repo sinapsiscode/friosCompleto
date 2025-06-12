@@ -277,59 +277,136 @@ const FormularioOrdenServicio = ({ onClose, clienteActual: clienteActualProp, da
     console.log('📋 servicioData:', servicioData);
 
     try {
-      // Enviar a la API del backend
-      const response = await servicioService.create(servicioData);
-      console.log('✅ Servicio creado en la base de datos:', response);
-
-      // También agregar al contexto local para sincronización inmediata
-      const nuevaSolicitud = {
-        id: response.data.id || response.data.numeroOrden,
-        clienteId: clienteActual.id,
-        tecnicoId: null,
-        fecha: servicioData.fecha,
-        hora: servicioData.hora,
-        tipo: servicioData.tipo,
-        estado: 'pendiente',
-        descripcion: servicioData.descripcion,
-        equipos: servicioData.equipos,
-        prioridad: servicioData.prioridad,
-        observaciones: '',
-        fotos: [],
-        ...ubicacionInfo,
-        numeroOrden: response.data.numeroOrden
-      };
+      console.log('🚀 === PROCESANDO SOLICITUD DE SERVICIO ===');
+      console.log('📝 Tipo de servicio:', formData.tipo);
       
-      addItem('servicios', nuevaSolicitud);
+      let response = null;
+      
+      if (formData.tipo === 'correctivo') {
+        console.log('🔧 Creando servicio correctivo (manual)...');
+        // Para servicios correctivos: crear solo UN servicio manual
+        response = await servicioService.create(servicioData);
+        console.log('✅ Servicio correctivo creado:', response);
+        
+        // Agregar al contexto local para servicios correctivos
+        const nuevaSolicitud = {
+          id: response.data.id || response.data.numeroOrden,
+          clienteId: clienteActual.id,
+          tecnicoId: null,
+          fecha: servicioData.fecha,
+          hora: servicioData.hora,
+          tipo: servicioData.tipo,
+          estado: 'pendiente',
+          descripcion: servicioData.descripcion,
+          equipos: servicioData.equipos,
+          prioridad: servicioData.prioridad,
+          observaciones: '',
+          fotos: [],
+          ...ubicacionInfo,
+          numeroOrden: response.data.numeroOrden
+        };
+        
+        addItem('servicios', nuevaSolicitud);
+        showAlert('Solicitud de servicio correctivo enviada exitosamente', 'success');
+        
+      } else if (formData.tipo === 'programado') {
+        console.log('📅 Creando servicio programado (con programación)...');
+        // Para servicios programados: NO crear servicio individual, 
+        // solo la programación que generará servicios automáticamente
+        console.log('⚠️ No se crea servicio individual para programados');
+        
+      } else {
+        // Fallback para otros tipos
+        console.log('📝 Creando servicio genérico...');
+        response = await servicioService.create(servicioData);
+        console.log('✅ Servicio genérico creado:', response);
+        
+        // Agregar al contexto local para servicios genéricos
+        const nuevaSolicitud = {
+          id: response.data.id || response.data.numeroOrden,
+          clienteId: clienteActual.id,
+          tecnicoId: null,
+          fecha: servicioData.fecha,
+          hora: servicioData.hora,
+          tipo: servicioData.tipo,
+          estado: 'pendiente',
+          descripcion: servicioData.descripcion,
+          equipos: servicioData.equipos,
+          prioridad: servicioData.prioridad,
+          observaciones: '',
+          fotos: [],
+          ...ubicacionInfo,
+          numeroOrden: response.data.numeroOrden
+        };
+        
+        addItem('servicios', nuevaSolicitud);
+      }
 
       // Si es servicio programado, crear la programación
       if (formData.tipo === 'programado' && formData.programacion.fechaInicio && formData.programacion.fechaFin) {
         try {
+          console.log('📅 === CREANDO PROGRAMACIÓN ===');
+          console.log('📋 Datos de programación:', formData.programacion);
+          
+          // Mapear frecuencia a intervaloDias
+          const frecuenciaMap = {
+            'semanal': { frecuencia: 'SEMANAL', intervaloDias: 7 },
+            'mensual': { frecuencia: 'MENSUAL', intervaloDias: 30 },
+            'trimestral': { frecuencia: 'TRIMESTRAL', intervaloDias: 90 }
+          };
+          
+          const frecuenciaConfig = frecuenciaMap[formData.programacion.frecuencia] || 
+                                 { frecuencia: 'MENSUAL', intervaloDias: 30 };
+          
           const programacionData = {
             clienteId: clienteActual.id,
-            frecuencia: formData.programacion.frecuencia,
+            nombre: `Programación ${frecuenciaConfig.frecuencia.toLowerCase()} - ${clienteActual.razonSocial || clienteActual.nombre}`,
+            descripcion: formData.descripcion,
+            tipoServicio: 'programado',
+            frecuencia: frecuenciaConfig.frecuencia,
+            intervaloDias: frecuenciaConfig.intervaloDias,
+            horaInicio: formData.horaPreferida?.split('-')[0] || '09:00',
+            horaFin: formData.horaPreferida?.split('-')[1] || '13:00',
             fechaInicio: formData.programacion.fechaInicio,
             fechaFin: formData.programacion.fechaFin,
+            prioridad: formData.urgencia?.toUpperCase() || 'MEDIA',
             equipos: formData.equiposSeleccionados,
-            estado: 'activa'
+            ...ubicacionInfo
           };
           
-          // También crear programación en la API si tienes el servicio
-          console.log('📅 Creando programación:', programacionData);
+          console.log('📤 Enviando programación a la API:', programacionData);
           
-          // Por ahora agregar al contexto local
-          const nuevaProgramacion = {
-            id: getNextId('programaciones'),
-            ...programacionData,
-            diasProgramados: [new Date(formData.programacion.fechaInicio).getDate()]
-          };
-          addItem('programaciones', nuevaProgramacion);
+          // Crear programación en la API
+          const programacionResponse = await programacionService.create(programacionData);
+          console.log('✅ Programación creada exitosamente:', programacionResponse);
+          
+          // Generar servicios automáticamente
+          if (programacionResponse.success && programacionResponse.data.id) {
+            console.log('🔄 Generando servicios automáticos...');
+            const serviciosGenerados = await programacionService.generarServicios(
+              formData.programacion.fechaFin
+            );
+            console.log('✅ Servicios generados:', serviciosGenerados);
+            
+            // No mostrar alert aquí, se mostrará al final
+            console.log(`✅ Se generaron ${serviciosGenerados.data?.serviciosCreados || 0} servicios automáticos`);
+          }
+          
         } catch (progError) {
-          console.warn('⚠️ Error al crear programación:', progError);
+          console.error('❌ Error al crear programación:', progError);
+          showAlert('Error al crear la programación.', 'warning');
+          return; // Salir si hay error en programación
         }
       }
 
-      console.log('🎉 === SERVICIO GUARDADO EXITOSAMENTE EN LA BASE DE DATOS ===');
-      showAlert('Solicitud de orden de servicio enviada exitosamente', 'success');
+      // Solo mostrar mensaje final si no se mostró antes
+      if (formData.tipo === 'programado') {
+        console.log('🎉 === PROGRAMACIÓN COMPLETADA ===');
+        showAlert('Programación creada exitosamente. Los servicios se generarán automáticamente.', 'success');
+      } else {
+        console.log('🎉 === SERVICIO GUARDADO EXITOSAMENTE ===');
+        // El mensaje ya se mostró antes para correctivos
+      }
       
       // Resetear el formulario antes de cerrar
       resetForm();
