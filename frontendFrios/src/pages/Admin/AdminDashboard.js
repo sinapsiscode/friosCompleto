@@ -104,6 +104,48 @@ const AdminDashboard = () => {
   const equiposOperativos = equipos.filter(e => e.estadoOperativo === 'operativo' || e.estado === 'operativo').length;
   const equiposTotal = equipos.length;
 
+  // Calcular métricas de rendimiento reales
+  const totalOrdenesDelMes = servicios.filter(s => {
+    const date = new Date(s.fechaProgramada);
+    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+  }).length;
+
+  const ordenesCompletadasDelMes = servicios.filter(s => {
+    const date = new Date(s.fechaProgramada);
+    return date.getMonth() === currentMonth && 
+           date.getFullYear() === currentYear &&
+           s.estado === 'COMPLETADO';
+  }).length;
+
+  const porcentajeCompletado = totalOrdenesDelMes > 0 ? Math.round((ordenesCompletadasDelMes / totalOrdenesDelMes) * 100) : 0;
+
+  // Calcular tasa de cumplimiento (órdenes a tiempo)
+  const ordenesATiempo = servicios.filter(s => {
+    const fechaProgramada = new Date(s.fechaProgramada);
+    const fechaCompletado = s.fechaCompletado ? new Date(s.fechaCompletado) : null;
+    return s.estado === 'COMPLETADO' && 
+           fechaCompletado && 
+           fechaCompletado <= fechaProgramada;
+  }).length;
+  
+  const totalOrdenesCompletadas = servicios.filter(s => s.estado === 'COMPLETADO').length;
+  const tasaCumplimiento = totalOrdenesCompletadas > 0 ? Math.round((ordenesATiempo / totalOrdenesCompletadas) * 100) : 0;
+
+  // Calcular tiempo promedio de respuesta (en horas)
+  const serviciosConTiempos = servicios.filter(s => s.fechaSolicitud && s.fechaInicio);
+  const tiempoPromedioHoras = serviciosConTiempos.length > 0 ? 
+    serviciosConTiempos.reduce((acc, s) => {
+      const inicio = new Date(s.fechaInicio);
+      const solicitud = new Date(s.fechaSolicitud);
+      const diferencia = (inicio - solicitud) / (1000 * 60 * 60); // horas
+      return acc + diferencia;
+    }, 0) / serviciosConTiempos.length : 0;
+
+  // Calcular satisfacción promedio del cliente
+  const evaluacionesConCalificacion = servicios.filter(s => s.evaluacion?.calificacion);
+  const satisfaccionPromedio = evaluacionesConCalificacion.length > 0 ?
+    evaluacionesConCalificacion.reduce((acc, s) => acc + s.evaluacion.calificacion, 0) / evaluacionesConCalificacion.length : 0;
+
   const handleNuevoServicio = () => {
     setSelectedServicio(null);
     setShowModal(true);
@@ -417,12 +459,12 @@ const AdminDashboard = () => {
             </div>
             <div>
               <h3 className="metric-title">Órdenes del Mes</h3>
-              <div className="metric-value">28/40</div>
+              <div className="metric-value">{ordenesCompletadasDelMes}/{totalOrdenesDelMes}</div>
               <div className="progress-bar">
-                <div className="progress-fill" style={{ width: '70%' }}></div>
+                <div className="progress-fill" style={{ width: `${porcentajeCompletado}%` }}></div>
               </div>
               <div className="flex justify-center items-center gap-2 text-sm">
-                <span className="font-medium text-blue-600">70%</span>
+                <span className="font-medium text-blue-600">{porcentajeCompletado}%</span>
                 <span className="text-gray-500">completado</span>
               </div>
             </div>
@@ -434,12 +476,12 @@ const AdminDashboard = () => {
             </div>
             <div>
               <h3 className="metric-title">Tasa de Cumplimiento</h3>
-              <div className="metric-value">92%</div>
-              <div className="text-sm font-medium mb-2 text-green-600">
-                <i className="fas fa-arrow-up"></i> +3%
+              <div className="metric-value">{tasaCumplimiento}%</div>
+              <div className="text-sm font-medium mb-2 text-blue-600">
+                <i className="fas fa-info-circle"></i> A tiempo
               </div>
               <div className="flex justify-center items-center gap-2 text-sm">
-                <span className="text-gray-500">vs mes anterior</span>
+                <span className="text-gray-500">{ordenesATiempo} de {totalOrdenesCompletadas}</span>
               </div>
             </div>
           </div>
@@ -450,14 +492,14 @@ const AdminDashboard = () => {
             </div>
             <div>
               <h3 className="metric-title">Satisfacción Cliente</h3>
-              <div className="metric-value">4.7</div>
+              <div className="metric-value">{satisfaccionPromedio > 0 ? satisfaccionPromedio.toFixed(1) : 'N/A'}</div>
               <div className="flex justify-center gap-1 mb-2">
                 {[...Array(5)].map((_, i) => (
-                  <i key={i} className={`fas fa-star text-base ${i < 4 ? 'text-yellow-400' : 'text-gray-300'}`}></i>
+                  <i key={i} className={`fas fa-star text-base ${i < Math.round(satisfaccionPromedio) ? 'text-yellow-400' : 'text-gray-300'}`}></i>
                 ))}
               </div>
               <div className="flex justify-center items-center gap-2 text-sm">
-                <span className="text-gray-500">156 evaluaciones</span>
+                <span className="text-gray-500">{evaluacionesConCalificacion.length} evaluaciones</span>
               </div>
             </div>
           </div>
@@ -468,12 +510,12 @@ const AdminDashboard = () => {
             </div>
             <div>
               <h3 className="metric-title">Tiempo Respuesta</h3>
-              <div className="metric-value">2.5h</div>
-              <div className="text-sm font-medium mb-2 text-green-600">
-                <i className="fas fa-arrow-down"></i> -15%
+              <div className="metric-value">{tiempoPromedioHoras > 0 ? `${tiempoPromedioHoras.toFixed(1)}h` : 'N/A'}</div>
+              <div className="text-sm font-medium mb-2 text-blue-600">
+                <i className="fas fa-info-circle"></i> Promedio
               </div>
               <div className="flex justify-center items-center gap-2 text-sm">
-                <span className="text-gray-500">promedio</span>
+                <span className="text-gray-500">{serviciosConTiempos.length} mediciones</span>
               </div>
             </div>
           </div>

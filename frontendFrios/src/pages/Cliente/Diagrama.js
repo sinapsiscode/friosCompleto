@@ -401,7 +401,19 @@ const Diagrama = () => {
                                   </div>
                                   <div className="col-span-2">
                                     <p className="text-gray-400">Equipos</p>
-                                    <p className="font-semibold">{equipos.map(e => e.tipo).join(', ') || 'No especificados'}</p>
+                                    <div className="space-y-1">
+                                      {equipos.length > 0 ? equipos.map(e => (
+                                        <div key={e.id} className="text-xs">
+                                          <span className="font-semibold">{e.nombre || `${e.tipo} ${e.marca}`}</span>
+                                          <div className="text-gray-300">
+                                            {e.marca} {e.modelo} | {e.capacidad}L | Serie: {e.numeroSerie}
+                                          </div>
+                                          <div className="text-gray-300">
+                                            Estado: {e.estadoOperativo} | Ubicación: {e.ubicacion}
+                                          </div>
+                                        </div>
+                                      )) : <span className="font-semibold">No especificados</span>}
+                                    </div>
                                   </div>
                                 </div>
                                 <div className="absolute top-full left-4 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900"></div>
@@ -500,7 +512,14 @@ const Diagrama = () => {
                           {tecnico ? `${tecnico.nombre} ${tecnico.apellido}` : 'No asignado'}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500">
-                          {equipos.map(e => e.tipo).join(', ')}
+                          <div className="space-y-1">
+                            {equipos.length > 0 ? equipos.map(e => (
+                              <div key={e.id} className="text-xs">
+                                <div className="font-medium">{e.nombre || `${e.tipo} ${e.marca}`}</div>
+                                <div className="text-gray-400">{e.marca} {e.modelo} | {e.capacidad}L</div>
+                              </div>
+                            )) : 'No especificados'}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -661,12 +680,71 @@ const Diagrama = () => {
                 {(() => {
                   const equipos = data.equipos.filter(e => selectedServicio.equipos?.includes(e.id));
                   return equipos.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       {equipos.map(equipo => (
-                        <div key={equipo.id} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
-                          <div>
-                            <p className="font-medium">{equipo.tipo} - {equipo.marca}</p>
-                            <p className="text-sm text-gray-500">Modelo: {equipo.modelo}</p>
+                        <div key={equipo.id} className="bg-white rounded-lg p-4 border border-gray-200">
+                          <div className="flex items-start gap-4">
+                            {equipo.imagenEquipo ? (
+                              <img 
+                                src={`/uploads/${equipo.imagenEquipo}`} 
+                                alt={equipo.nombre}
+                                className="w-16 h-16 rounded-lg object-cover border border-gray-200"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div className={`w-16 h-16 rounded-lg flex items-center justify-center text-white font-semibold bg-gradient-to-br from-blue-500 to-blue-600 ${equipo.imagenEquipo ? 'hidden' : ''}`}>
+                              {equipo.tipo?.charAt(0).toUpperCase() || 'E'}
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-medium text-gray-900">{equipo.nombre || `${equipo.tipo} ${equipo.marca}`}</h4>
+                              <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                                <div>
+                                  <span className="text-gray-500">Marca:</span>
+                                  <span className="ml-1 font-medium">{equipo.marca}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Modelo:</span>
+                                  <span className="ml-1 font-medium">{equipo.modelo}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Capacidad:</span>
+                                  <span className="ml-1 font-medium">{equipo.capacidad} L</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Estado:</span>
+                                  <span className={`ml-1 font-medium ${
+                                    equipo.estadoOperativo === 'operativo' ? 'text-green-600' :
+                                    equipo.estadoOperativo === 'mantenimiento' ? 'text-yellow-600' :
+                                    'text-red-600'
+                                  }`}>
+                                    {equipo.estadoOperativo?.replace('_', ' ') || 'Sin estado'}
+                                  </span>
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="text-gray-500">N° Serie:</span>
+                                  <span className="ml-1 font-medium font-mono">{equipo.numeroSerie}</span>
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="text-gray-500">Ubicación:</span>
+                                  <span className="ml-1 font-medium">{equipo.ubicacion || 'No especificada'}</span>
+                                </div>
+                                {equipo.fechaCompra && (
+                                  <div>
+                                    <span className="text-gray-500">F. Compra:</span>
+                                    <span className="ml-1 font-medium">{new Date(equipo.fechaCompra).toLocaleDateString()}</span>
+                                  </div>
+                                )}
+                                {equipo.fechaInstalacion && (
+                                  <div>
+                                    <span className="text-gray-500">F. Instalación:</span>
+                                    <span className="ml-1 font-medium">{new Date(equipo.fechaInstalacion).toLocaleDateString()}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
