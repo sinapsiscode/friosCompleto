@@ -245,10 +245,36 @@ const evaluacionController = {
         },
         include: {
           cliente: {
-            select: { id: true, nombre: true, apellido: true }
+            select: { 
+              id: true, 
+              nombre: true, 
+              apellido: true, 
+              razonSocial: true,
+              telefono: true,
+              email: true 
+            }
           },
           equipo: {
-            select: { id: true, nombre: true, tipo: true }
+            select: { 
+              id: true, 
+              nombre: true, 
+              tipo: true, 
+              marca: true, 
+              modelo: true 
+            }
+          },
+          equiposServicio: {
+            include: {
+              equipo: {
+                select: { 
+                  id: true, 
+                  nombre: true, 
+                  tipo: true, 
+                  marca: true, 
+                  modelo: true 
+                }
+              }
+            }
           }
         },
         orderBy: {

@@ -307,11 +307,15 @@ const MisEquipos = () => {
                 {/* Header con estado e imagen */}
                 <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 p-6 overflow-hidden">
                   {/* Imagen de fondo si existe */}
-                  {equipo.foto && (
+                  {equipo.imagenEquipo && (
                     <img 
-                      src={equipo.foto} 
+                      src={`http://localhost:2001/${equipo.imagenEquipo}`} 
                       alt={`${equipo.marca} ${equipo.modelo}`}
                       className="absolute inset-0 w-full h-full object-cover opacity-20"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        console.log('Error cargando imagen:', equipo.imagenEquipo);
+                      }}
                     />
                   )}
                   

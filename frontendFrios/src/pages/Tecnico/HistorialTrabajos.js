@@ -10,33 +10,24 @@ const HistorialTrabajos = () => {
   const [selectedServicio, setSelectedServicio] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   
-  // Buscar el técnico actual con lógica mejorada y validación
-  const tecnicoActual = data.tecnicos.find(t => {
-    // Si tiene usuario.username (estructura del backend)
-    if (t.usuario && t.usuario.username) {
-      return t.usuario.username === user.username;
-    }
-    // Si tiene usuario directamente (estructura antigua)
-    if (t.usuario === user.username) {
-      return true;
-    }
-    return false;
-  }) || data.tecnicos[0] || {
+  // Buscar el técnico actual basado en el userId del backend
+  const tecnicoActual = data.tecnicos?.find(t => {
+    // Comparar con el userId del usuario logueado
+    return t.userId === user.id;
+  }) || {
     // Datos estáticos de fallback si no se encuentra técnico
-    id: 'tecnico-demo',
-    nombre: 'Técnico',
-    apellido: 'Demo',
-    usuario: { username: user?.username || 'tecnico' },
-    especialidad: 'General'
+    id: 1, // ID por defecto para las consultas
+    nombre: 'Juan',
+    apellido: 'Pérez',
+    userId: user?.id,
+    especialidad: 'Refrigeración Industrial'
   };
   
-  // Obtener servicios completados y cancelados del técnico (con validación)
+  // Obtener servicios completados del técnico (usando estructura del backend)
   const misServiciosHistorial = tecnicoActual && tecnicoActual.id 
-    ? data.servicios.filter(s => {
-        // Manejar estructuras del backend (estados en mayúsculas)
-        const estadoNormalizado = s.estado?.toLowerCase() || s.estado;
-        return s.tecnicoId === tecnicoActual.id && 
-               (estadoNormalizado === 'completado' || estadoNormalizado === 'cancelado');
+    ? (data.servicios || []).filter(s => {
+        // Comparar con tecnicoId y filtrar solo estados COMPLETADO
+        return s.tecnicoId === tecnicoActual.id && s.estado === 'COMPLETADO';
       })
     : [];
 
@@ -46,16 +37,18 @@ const HistorialTrabajos = () => {
   console.log('📋 Servicios del técnico (historial):', misServiciosHistorial?.length || 0);
   console.log('📄 Muestra de servicios:', misServiciosHistorial.slice(0, 3));
 
-  // Filtrar servicios
+  // Filtrar servicios con la estructura correcta del backend
   const filteredServicios = misServiciosHistorial.filter(servicio => {
-    // Manejar tipos de servicio del backend
-    const tipoNormalizado = servicio.tipoServicio?.toLowerCase() || servicio.tipo?.toLowerCase();
+    // Usar tipoServicio del backend
+    const tipoNormalizado = servicio.tipoServicio?.toLowerCase();
     const matchesTipo = filterTipo === 'todos' || tipoNormalizado === filterTipo;
     
     if (filterMes === 'todos') return matchesTipo;
     
-    // Usar fechaCompletado del backend si existe, sino fecha programada
-    const fechaServicio = servicio.fechaCompletado || servicio.fechaProgramada || servicio.fecha;
+    // Usar fechaCompletado del backend
+    const fechaServicio = servicio.fechaCompletado;
+    if (!fechaServicio) return false;
+    
     const servicioDate = new Date(fechaServicio);
     const currentDate = new Date();
     
@@ -77,10 +70,11 @@ const HistorialTrabajos = () => {
     }
   });
 
-  // Agrupar por mes
+  // Agrupar por mes usando fechaCompletado
   const serviciosPorMes = filteredServicios.reduce((acc, servicio) => {
-    // Usar fechaCompletado del backend si existe, sino fechaProgramada
-    const fechaServicio = servicio.fechaCompletado || servicio.fechaProgramada || servicio.fecha;
+    const fechaServicio = servicio.fechaCompletado;
+    if (!fechaServicio) return acc;
+    
     const fecha = new Date(fechaServicio);
     const mesKey = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
     const mesNombre = fecha.toLocaleDateString('es', { month: 'long', year: 'numeric' });
@@ -144,7 +138,6 @@ const HistorialTrabajos = () => {
             className="w-full lg:min-w-40 px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-700 cursor-pointer transition-all hover:border-primary focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10"
           >
             <option value="todos">Todos los tipos</option>
-            <option value="preventivo">Mantenimiento Preventivo</option>
             <option value="correctivo">Servicio Correctivo</option>
             <option value="programado">Mantenimiento Programado</option>
           </select>
@@ -221,17 +214,17 @@ const HistorialTrabajos = () => {
                 
                 <div className="space-y-4">
                   {mesData.servicios.map(servicio => {
-                    const cliente = data.clientes.find(c => c.id === servicio.clienteId);
-                    const equipos = data.equipos.filter(e => servicio.equipos?.includes(e.id));
+                    const cliente = servicio.cliente || data.clientes?.find(c => c.id === servicio.clienteId);
+                    const equipo = servicio.equipo;
                     
                     return (
                       <div key={servicio.id} className="flex gap-4 p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-white hover:border-primary transition-all duration-300 relative overflow-hidden group">
                         <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300 rounded-l-lg"></div>
                         
                         <div className="bg-primary text-white p-3 rounded-lg text-center min-w-16 flex flex-col justify-center shrink-0">
-                          <span className="text-xl font-bold leading-none">{new Date(servicio.fecha).getDate()}</span>
+                          <span className="text-xl font-bold leading-none">{new Date(servicio.fechaCompletado).getDate()}</span>
                           <span className="text-xs uppercase mt-1 opacity-90">
-                            {new Date(servicio.fecha).toLocaleDateString('es', { month: 'short' })}
+                            {new Date(servicio.fechaCompletado).toLocaleDateString('es', { month: 'short' })}
                           </span>
                         </div>
                         
@@ -241,19 +234,20 @@ const HistorialTrabajos = () => {
                               {cliente?.razonSocial || `${cliente?.nombre} ${cliente?.apellido}`}
                             </h4>
                             <div className="flex gap-2 flex-wrap">
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${servicio.tipo === 'preventivo' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'}`}>
-                                <i className={`fas fa-${servicio.tipo === 'preventivo' ? 'shield-alt' : 'tools'}`}></i> {servicio.tipo}
-                              </span>
                               <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${
-                                servicio.estado === 'completado' ? 'bg-success/10 text-success' : 'bg-red-100 text-red-700'
+                                servicio.tipoServicio === 'programado' ? 'bg-info/10 text-info' : 
+                                servicio.tipoServicio === 'correctivo' ? 'bg-warning/10 text-warning' : 'bg-gray-100 text-gray-600'
                               }`}>
-                                <i className={`fas fa-${servicio.estado === 'completado' ? 'check-circle' : 'times-circle'}`}></i>
-                                {servicio.estado === 'completado' ? 'Completado' : 'Cancelado'}
+                                <i className={`fas fa-${servicio.tipoServicio === 'programado' ? 'calendar' : 'tools'}`}></i> 
+                                {servicio.tipoServicio}
                               </span>
-                              {servicio.evaluacion && (
-                                <span className="px-2 py-1 text-xs font-medium bg-warning/10 text-warning rounded-full flex items-center gap-1">
-                                  <i className="fas fa-star"></i>
-                                  {servicio.evaluacion.calificacion}
+                              <span className="px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 bg-success/10 text-success">
+                                <i className="fas fa-check-circle"></i>
+                                Completado
+                              </span>
+                              {servicio.numeroOrden && (
+                                <span className="px-2 py-1 text-xs font-mono bg-gray-100 text-gray-700 rounded-full">
+                                  {servicio.numeroOrden}
                                 </span>
                               )}
                             </div>
@@ -261,33 +255,28 @@ const HistorialTrabajos = () => {
                           
                           <p className="text-gray-700 leading-relaxed mb-3">{servicio.descripcion}</p>
                           
-                          <div className="mb-3">
-                            <div className="flex flex-wrap gap-2">
-                              {equipos.slice(0, 2).map(equipo => (
-                                <span key={equipo.id} className="inline-flex items-center px-2 py-1 bg-primary/10 text-primary-dark rounded-md text-xs font-medium">
-                                  {equipo.tipo} {equipo.marca}
+                          {equipo && (
+                            <div className="mb-3">
+                              <div className="flex flex-wrap gap-2">
+                                <span className="inline-flex items-center px-2 py-1 bg-primary/10 text-primary-dark rounded-md text-xs font-medium">
+                                  <i className="fas fa-snowflake mr-1"></i>
+                                  {equipo.tipo} {equipo.marca} {equipo.modelo}
                                 </span>
-                              ))}
-                              {equipos.length > 2 && (
-                                <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-600 rounded-md text-xs font-medium">
-                                  +{equipos.length - 2} más
-                                </span>
-                              )}
+                              </div>
                             </div>
-                          </div>
+                          )}
                           
                           <div className="flex justify-between items-center">
                             <div className="text-sm text-gray-600">
-                              {servicio.horaInicio && (
-                                <span>
-                                  {new Date(servicio.horaInicio).toLocaleString('es', { 
-                                    day: '2-digit', 
-                                    month: 'short', 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                  })}
-                                </span>
-                              )}
+                              <i className="fas fa-clock mr-1"></i>
+                              <span>
+                                Completado: {new Date(servicio.fechaCompletado).toLocaleString('es', { 
+                                  day: '2-digit', 
+                                  month: 'short', 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </span>
                             </div>
                             <button
                               onClick={() => handleShowDetails(servicio)}

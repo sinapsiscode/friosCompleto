@@ -1,39 +1,94 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
 import AuthContext from '../../context/AuthContext';
+import evaluacionService from '../../services/evaluacion.service';
 
 const MisEvaluaciones = () => {
   const { data } = useContext(DataContext);
   const { user } = useContext(AuthContext);
   const [filterCalificacion, setFilterCalificacion] = useState('todas');
+  const [loading, setLoading] = useState(true);
+  const [misEvaluaciones, setMisEvaluaciones] = useState([]);
+  const [estadisticas, setEstadisticas] = useState({
+    total: 0,
+    promedio: 0,
+    distribucion: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+  });
   
-  // Buscar el técnico actual con lógica mejorada y validación
-  const tecnicoActual = data.tecnicos.find(t => {
-    // Si tiene usuario.username (estructura del backend)
-    if (t.usuario && t.usuario.username) {
-      return t.usuario.username === user.username;
+  // Cargar evaluaciones del backend
+  useEffect(() => {
+    cargarMisEvaluaciones();
+  }, []);
+
+  const cargarMisEvaluaciones = async () => {
+    try {
+      setLoading(true);
+      console.log('📊 Cargando evaluaciones del técnico...');
+      
+      const response = await evaluacionService.obtenerEvaluacionesTecnico();
+      
+      if (response.success) {
+        setMisEvaluaciones(response.data.servicios || []);
+        setEstadisticas(response.data.estadisticas || {
+          total: 0,
+          promedio: 0,
+          distribucion: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+        });
+        console.log('✅ Evaluaciones cargadas:', response.data);
+      } else {
+        console.error('❌ Error en respuesta:', response.message);
+        // Fallback a datos locales
+        cargarEvaluacionesLocales();
+      }
+    } catch (error) {
+      console.error('❌ Error al cargar evaluaciones:', error);
+      // Fallback a datos locales
+      cargarEvaluacionesLocales();
+    } finally {
+      setLoading(false);
     }
-    // Si tiene usuario directamente (estructura antigua)
-    if (t.usuario === user.username) {
-      return true;
+  };
+
+  const cargarEvaluacionesLocales = () => {
+    // Fallback: buscar técnico actual y usar datos locales
+    const tecnicoActual = data.tecnicos.find(t => {
+      if (t.usuario && t.usuario.username) {
+        return t.usuario.username === user.username;
+      }
+      if (t.usuario === user.username) {
+        return true;
+      }
+      return false;
+    }) || data.tecnicos[0];
+    
+    if (tecnicoActual) {
+      const serviciosConEvaluacion = data.servicios.filter(s => 
+        s.tecnicoId === tecnicoActual.id && s.evaluacion
+      );
+      setMisEvaluaciones(serviciosConEvaluacion);
+      
+      // Calcular estadísticas locales
+      const total = serviciosConEvaluacion.length;
+      const promedio = total > 0 
+        ? (serviciosConEvaluacion.reduce((sum, s) => sum + s.evaluacion.calificacion, 0) / total).toFixed(1)
+        : 0;
+        
+      setEstadisticas({
+        total,
+        promedio: parseFloat(promedio),
+        distribucion: {
+          1: serviciosConEvaluacion.filter(s => s.evaluacion.calificacion === 1).length,
+          2: serviciosConEvaluacion.filter(s => s.evaluacion.calificacion === 2).length,
+          3: serviciosConEvaluacion.filter(s => s.evaluacion.calificacion === 3).length,
+          4: serviciosConEvaluacion.filter(s => s.evaluacion.calificacion === 4).length,
+          5: serviciosConEvaluacion.filter(s => s.evaluacion.calificacion === 5).length
+        }
+      });
     }
-    return false;
-  }) || data.tecnicos[0] || {
-    // Datos estáticos de fallback si no se encuentra técnico
-    id: 'tecnico-demo',
-    nombre: 'Técnico',
-    apellido: 'Demo',
-    usuario: { username: user?.username || 'tecnico' },
-    especialidad: 'General'
   };
   
-  // Obtener servicios con evaluaciones del técnico (con validación)
-  const misServiciosConEvaluacion = tecnicoActual && tecnicoActual.id 
-    ? data.servicios.filter(s => s.tecnicoId === tecnicoActual.id && s.evaluacion)
-    : [];
-
-  // Filtrar por calificación
-  const filteredEvaluaciones = misServiciosConEvaluacion.filter(servicio => {
+  // Filtrar evaluaciones por calificación
+  const filteredEvaluaciones = misEvaluaciones.filter(servicio => {
     if (filterCalificacion === 'todas') return true;
     const rating = servicio.evaluacion.calificacion;
     switch (filterCalificacion) {
@@ -45,19 +100,35 @@ const MisEvaluaciones = () => {
     }
   });
 
-  // Calcular estadísticas
-  const totalEvaluaciones = misServiciosConEvaluacion.length;
-  const promedioCalificacion = totalEvaluaciones > 0
-    ? (misServiciosConEvaluacion.reduce((acc, s) => acc + s.evaluacion.calificacion, 0) / totalEvaluaciones).toFixed(1)
-    : 0;
+  // Usar estadísticas del backend
+  const totalEvaluaciones = estadisticas.total;
+  const promedioCalificacion = estadisticas.promedio;
+  const distribucionCalificaciones = estadisticas.distribucion;
 
-  const distribucionCalificaciones = {
-    5: misServiciosConEvaluacion.filter(s => s.evaluacion.calificacion === 5).length,
-    4: misServiciosConEvaluacion.filter(s => s.evaluacion.calificacion === 4).length,
-    3: misServiciosConEvaluacion.filter(s => s.evaluacion.calificacion === 3).length,
-    2: misServiciosConEvaluacion.filter(s => s.evaluacion.calificacion === 2).length,
-    1: misServiciosConEvaluacion.filter(s => s.evaluacion.calificacion === 1).length,
-  };
+  // Mostrar loading mientras cargan las evaluaciones
+  if (loading) {
+    return (
+      <div className="w-full max-w-6xl mx-auto p-6 animate-fadeIn">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 pb-6 border-b-2 border-gray-200">
+          <div>
+            <h1 className="text-3xl lg:text-4xl font-bold text-gray-800 mb-2 flex items-center gap-3">
+              <i className="fas fa-star text-warning text-3xl lg:text-4xl"></i>
+              Mis Evaluaciones
+            </h1>
+            <p className="text-lg text-gray-600">
+              Ve las evaluaciones que han hecho los clientes sobre tu trabajo
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-center items-center py-12">
+          <div className="text-center">
+            <i className="fas fa-spinner fa-spin text-4xl text-primary mb-4"></i>
+            <p className="text-lg text-gray-600">Cargando mis evaluaciones...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-6xl mx-auto p-6 animate-fadeIn">
