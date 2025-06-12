@@ -1154,41 +1154,222 @@ const Estadisticas = () => {
         </div>
       </div>
 
-      {/* Resumen de Equipos */}
+      {/* Resumen de Equipos Detallado */}
       <div className="mt-8">
-        <h3 className="text-xl text-gray-900 mb-6 flex items-center gap-3 before:content-['🏢'] before:text-2xl">Estado de Equipos por Cliente</h3>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
-          {data.clientes.map(cliente => {
-            const equiposCliente = data.equipos.filter(e => cliente.equipos?.includes(e.id));
-            const operativos = equiposCliente.filter(e => e.estado === 'operativo').length;
-            const mantenimiento = equiposCliente.filter(e => e.estado === 'mantenimiento').length;
-            
-            return (
-              <div key={cliente.id} className="bg-white rounded-3xl p-8 shadow-md border border-gray-100 transition-all duration-400 cubic-bezier(0.4,0,0.2,1) relative overflow-hidden hover:transform hover:-translate-y-1.5 hover:scale-[1.02] hover:shadow-xl hover:border-primary/20 before:content-[''] before:absolute before:top-0 before:left-0 before:right-0 before:h-0.5 before:bg-gradient-to-r before:from-primary before:to-primary-light before:rounded-t-3xl before:opacity-0 before:transition-all before:duration-300 hover:before:opacity-100">
-                <h4 className="text-base text-gray-900 mb-4 font-semibold">{cliente.razonSocial || `${cliente.nombre} ${cliente.apellido}`}</h4>
-                <div className="flex flex-col gap-3">
-                  <div className="flex justify-between items-center py-1">
-                    <span className="text-gray-600 text-sm">
-                      <i className="fas fa-snowflake"></i> Total Equipos:
-                    </span>
-                    <span className="font-semibold text-gray-900">{equiposCliente.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1">
-                    <span className="text-gray-600 text-sm">
-                      <i className="fas fa-check-circle"></i> Operativos:
-                    </span>
-                    <span className="font-semibold text-success">{operativos}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1">
-                    <span className="text-gray-600 text-sm">
-                      <i className="fas fa-tools"></i> En Mantenimiento:
-                    </span>
-                    <span className="font-semibold text-warning">{mantenimiento}</span>
+        <h3 className="text-xl text-gray-900 mb-6 flex items-center gap-3 before:content-['🏢'] before:text-2xl">Análisis Detallado de Equipos</h3>
+        
+        {/* Estadísticas Generales de Equipos */}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6 mb-8">
+          <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-100 transition-all duration-400 hover:shadow-xl hover:transform hover:-translate-y-1">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-blue-100 text-blue-600">
+                <i className="fas fa-snowflake"></i>
+              </div>
+              <div>
+                <h4 className="text-sm text-gray-600 font-medium uppercase tracking-wide">Total Equipos</h4>
+                <p className="text-2xl font-bold text-gray-900">{data.equipos.length}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-100 transition-all duration-400 hover:shadow-xl hover:transform hover:-translate-y-1">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-green-100 text-green-600">
+                <i className="fas fa-check-circle"></i>
+              </div>
+              <div>
+                <h4 className="text-sm text-gray-600 font-medium uppercase tracking-wide">Operativos</h4>
+                <p className="text-2xl font-bold text-gray-900">{data.equipos.filter(e => e.estadoOperativo === 'operativo').length}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-100 transition-all duration-400 hover:shadow-xl hover:transform hover:-translate-y-1">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-yellow-100 text-yellow-600">
+                <i className="fas fa-tools"></i>
+              </div>
+              <div>
+                <h4 className="text-sm text-gray-600 font-medium uppercase tracking-wide">En Mantenimiento</h4>
+                <p className="text-2xl font-bold text-gray-900">{data.equipos.filter(e => e.estadoOperativo === 'mantenimiento').length}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-100 transition-all duration-400 hover:shadow-xl hover:transform hover:-translate-y-1">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-purple-100 text-purple-600">
+                <i className="fas fa-chart-bar"></i>
+              </div>
+              <div>
+                <h4 className="text-sm text-gray-600 font-medium uppercase tracking-wide">Capacidad Promedio</h4>
+                <p className="text-2xl font-bold text-gray-900">
+                  {data.equipos.length > 0 
+                    ? Math.round(data.equipos.reduce((acc, e) => acc + (parseInt(e.capacidad) || 0), 0) / data.equipos.length)
+                    : 0} L
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabla Detallada de Equipos */}
+        <div className="bg-white rounded-3xl shadow-md border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-100">
+            <h4 className="text-lg font-semibold text-gray-900">Inventario Detallado de Equipos</h4>
+            <p className="text-sm text-gray-600 mt-1">Información completa de todos los equipos registrados</p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Equipo</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Cliente</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Marca/Modelo</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">N° Serie</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Capacidad</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Estado</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Fecha Compra</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Fecha Instalación</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Ubicación</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {data.equipos.map((equipo, index) => {
+                  const cliente = data.clientes.find(c => c.id === equipo.clienteId);
+                  const rowClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                  
+                  return (
+                    <tr key={equipo.id} className={`${rowClass} hover:bg-gray-100 transition-colors`}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {equipo.imagenEquipo ? (
+                            <img 
+                              src={`/uploads/${equipo.imagenEquipo}`} 
+                              alt={equipo.nombre}
+                              className="w-10 h-10 rounded-lg object-cover border border-gray-200"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold text-sm bg-gradient-to-br from-blue-500 to-blue-600 ${equipo.imagenEquipo ? 'hidden' : ''}`}>
+                            {equipo.tipo?.charAt(0).toUpperCase() || 'E'}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{equipo.nombre || `${equipo.tipo} ${equipo.marca}`}</p>
+                            <p className="text-sm text-gray-600 capitalize">{equipo.tipo}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {cliente ? (cliente.razonSocial || `${cliente.nombre} ${cliente.apellido}`) : 'Sin asignar'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-medium text-gray-900">{equipo.marca}</p>
+                          <p className="text-sm text-gray-600">{equipo.modelo}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 font-mono">
+                        {equipo.numeroSerie}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
+                          <i className="fas fa-thermometer-half text-xs"></i>
+                          {equipo.capacidad} L
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
+                          equipo.estadoOperativo === 'operativo' ? 'bg-green-100 text-green-800' :
+                          equipo.estadoOperativo === 'mantenimiento' ? 'bg-yellow-100 text-yellow-800' :
+                          equipo.estadoOperativo === 'fuera_servicio' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          <i className={`fas ${
+                            equipo.estadoOperativo === 'operativo' ? 'fa-check-circle' :
+                            equipo.estadoOperativo === 'mantenimiento' ? 'fa-tools' :
+                            equipo.estadoOperativo === 'fuera_servicio' ? 'fa-times-circle' :
+                            'fa-question-circle'
+                          }`}></i>
+                          {equipo.estadoOperativo?.replace('_', ' ') || 'Sin estado'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {equipo.fechaCompra ? new Date(equipo.fechaCompra).toLocaleDateString() : 'No registrada'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {equipo.fechaInstalacion ? new Date(equipo.fechaInstalacion).toLocaleDateString() : 'No registrada'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div className="flex items-center gap-1">
+                          <i className="fas fa-map-marker-alt text-gray-400"></i>
+                          {equipo.ubicacion || 'Sin ubicación'}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Resumen por Cliente */}
+        <div className="mt-8">
+          <h4 className="text-lg text-gray-900 mb-6 font-semibold">Equipos por Cliente</h4>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+            {data.clientes.map(cliente => {
+              const equiposCliente = data.equipos.filter(e => e.clienteId === cliente.id);
+              const operativos = equiposCliente.filter(e => e.estadoOperativo === 'operativo').length;
+              const mantenimiento = equiposCliente.filter(e => e.estadoOperativo === 'mantenimiento').length;
+              const fueraServicio = equiposCliente.filter(e => e.estadoOperativo === 'fuera_servicio').length;
+              const capacidadTotal = equiposCliente.reduce((acc, e) => acc + (parseInt(e.capacidad) || 0), 0);
+              
+              return (
+                <div key={cliente.id} className="bg-white rounded-3xl p-6 shadow-md border border-gray-100 transition-all duration-400 hover:transform hover:-translate-y-1 hover:shadow-xl">
+                  <h5 className="text-base text-gray-900 mb-4 font-semibold">{cliente.razonSocial || `${cliente.nombre} ${cliente.apellido}`}</h5>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 text-sm flex items-center gap-2">
+                        <i className="fas fa-snowflake text-blue-500"></i> Total Equipos
+                      </span>
+                      <span className="font-semibold text-gray-900">{equiposCliente.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 text-sm flex items-center gap-2">
+                        <i className="fas fa-check-circle text-green-500"></i> Operativos
+                      </span>
+                      <span className="font-semibold text-green-600">{operativos}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 text-sm flex items-center gap-2">
+                        <i className="fas fa-tools text-yellow-500"></i> En Mantenimiento
+                      </span>
+                      <span className="font-semibold text-yellow-600">{mantenimiento}</span>
+                    </div>
+                    {fueraServicio > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 text-sm flex items-center gap-2">
+                          <i className="fas fa-times-circle text-red-500"></i> Fuera de Servicio
+                        </span>
+                        <span className="font-semibold text-red-600">{fueraServicio}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                      <span className="text-gray-600 text-sm flex items-center gap-2">
+                        <i className="fas fa-thermometer-half text-purple-500"></i> Capacidad Total
+                      </span>
+                      <span className="font-semibold text-purple-600">{capacidadTotal} L</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

@@ -98,9 +98,10 @@ const AdminDashboard = () => {
 
   // Calcular estadísticas
   const serviciosActivos = servicios.filter(s => s.estado !== 'COMPLETADO' && s.estado !== 'CANCELADO').length;
-  const tecnicosDisponibles = tecnicos.filter(t => t.disponibilidad === 'DISPONIBLE').length;
-  const clientesActivos = clientes.filter(c => c.isActive).length;
-  const equiposOperativos = equipos.filter(e => e.estadoOperativo === 'operativo').length;
+  // Mostrar todos los técnicos como disponibles (sin filtrar por disponibilidad)
+  const tecnicosDisponibles = tecnicos.length;
+  const clientesActivos = clientes.length; // Mostrar todos los clientes como activos
+  const equiposOperativos = equipos.filter(e => e.estadoOperativo === 'operativo' || e.estado === 'operativo').length;
   const equiposTotal = equipos.length;
 
   const handleNuevoServicio = () => {

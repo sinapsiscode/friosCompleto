@@ -569,11 +569,17 @@ const Servicios = () => {
                     )}
                   </td>
                   <td className="py-4 px-6 text-gray-800 text-base">
-                    <span className={`inline-flex items-center gap-1 py-1 px-3 rounded-full text-xs font-semibold uppercase tracking-wide leading-none whitespace-nowrap transition-all duration-200 ${servicio.tipoServicio === 'Programado' ? 'bg-info/10 text-info' : servicio.tipoServicio === 'Correctivo' ? 'bg-warning/10 text-warning' : 'bg-gray-100 text-gray-700'}`}>
-                      {servicio.tipoServicio === 'Programado' && <i className="fas fa-calendar-check text-xs mr-0.5"></i>}
-                      {servicio.tipoServicio === 'Correctivo' && <i className="fas fa-wrench text-xs mr-0.5"></i>}
-                      {servicio.tipoServicio === 'Preventivo' && <i className="fas fa-shield-alt text-xs mr-0.5"></i>}
-                      {servicio.tipoServicio || 'N/A'}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      servicio.tipoServicio === 'programado' || servicio.tipoServicio === 'Programado' ? 'bg-info/10 text-info' : 
+                      servicio.tipoServicio === 'correctivo' || servicio.tipoServicio === 'Correctivo' ? 'bg-warning/10 text-warning' : 
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {(servicio.tipoServicio === 'programado' || servicio.tipoServicio === 'Programado') && <i className="fas fa-calendar-check mr-1"></i>}
+                      {(servicio.tipoServicio === 'correctivo' || servicio.tipoServicio === 'Correctivo') && <i className="fas fa-tools mr-1"></i>}
+                      {(servicio.tipoServicio === 'preventivo' || servicio.tipoServicio === 'Preventivo') && <i className="fas fa-shield-alt mr-1"></i>}
+                      {servicio.tipoServicio === 'programado' || servicio.tipoServicio === 'Programado' ? 'Programado' : 
+                       servicio.tipoServicio === 'correctivo' || servicio.tipoServicio === 'Correctivo' ? 'Correctivo' : 
+                       servicio.tipoServicio || 'N/A'}
                     </span>
                   </td>
                   <td className="py-4 px-6 text-gray-800 text-base">
@@ -593,26 +599,47 @@ const Servicios = () => {
                     })()}
                   </td>
                   <td className="py-4 px-6 text-gray-800 text-base">
-                    <span className={`inline-flex items-center gap-1 py-1 px-3 rounded-full text-xs font-semibold uppercase tracking-wide leading-none whitespace-nowrap transition-all duration-200 ${getPrioridadClass(servicio.prioridad) === 'danger' ? 'bg-danger/20 text-danger-dark' : getPrioridadClass(servicio.prioridad) === 'warning' ? 'bg-warning/20 text-warning-dark' : 'bg-gray-200 text-gray-700'}`}>
-                      {servicio.prioridad === 'alta' && <i className="fas fa-exclamation-circle text-xs mr-0.5"></i>}
-                      {servicio.prioridad === 'media' && <i className="fas fa-exclamation-triangle text-xs mr-0.5"></i>}
-                      {servicio.prioridad === 'baja' && <i className="fas fa-info-circle text-xs mr-0.5"></i>}
-                      {servicio.prioridad}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      servicio.prioridad === 'alta' || servicio.prioridad === 'ALTA' ? 'bg-danger/10 text-danger' :
+                      servicio.prioridad === 'media' || servicio.prioridad === 'MEDIA' ? 'bg-warning/10 text-warning' :
+                      'bg-success/10 text-success'
+                    }`}>
+                      {(servicio.prioridad === 'alta' || servicio.prioridad === 'ALTA') && <i className="fas fa-exclamation-circle text-xs mr-1"></i>}
+                      {(servicio.prioridad === 'media' || servicio.prioridad === 'MEDIA') && <i className="fas fa-exclamation-triangle text-xs mr-1"></i>}
+                      {(servicio.prioridad === 'baja' || servicio.prioridad === 'BAJA') && <i className="fas fa-info-circle text-xs mr-1"></i>}
+                      {servicio.prioridad?.toUpperCase() || 'BAJA'}
                     </span>
                   </td>
                   <td className="py-4 px-6 text-gray-800 text-base">
-                    <span className={`inline-flex items-center gap-1 py-1 px-3 rounded-full text-xs font-semibold uppercase tracking-wide leading-none whitespace-nowrap transition-all duration-200 ${
-                      getEstadoClass(servicio.estado) === 'success' ? 'bg-success/20 text-success-dark' : 
-                      getEstadoClass(servicio.estado) === 'primary' ? 'bg-blue-100 text-blue-700' : 
-                      getEstadoClass(servicio.estado) === 'info' ? 'bg-gray-100 text-gray-700' :
-                      getEstadoClass(servicio.estado) === 'danger' ? 'bg-danger/20 text-danger-dark' : 
-                      'bg-warning/20 text-warning-dark'
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      servicio.estado === 'COMPLETADO' || servicio.estado === 'completado' ? 'bg-success/10 text-success' :
+                      servicio.estado === 'PROCESO' || servicio.estado === 'proceso' ? 'bg-info/10 text-info' :
+                      servicio.estado === 'PENDIENTE' || servicio.estado === 'pendiente' ? 'bg-warning/10 text-warning' :
+                      servicio.estado === 'CANCELADO' || servicio.estado === 'cancelado' ? 'bg-danger/10 text-danger' :
+                      'bg-gray-100 text-gray-600'
                     }`}>
-                      {servicio.estado === 'pendiente' && <i className="fas fa-clock text-xs mr-0.5"></i>}
-                      {servicio.estado === 'proceso' && <i className="fas fa-spinner text-xs mr-0.5"></i>}
-                      {servicio.estado === 'completado' && <i className="fas fa-check-circle text-xs mr-0.5"></i>}
-                      {servicio.estado === 'cancelado' && <i className="fas fa-times-circle text-xs mr-0.5"></i>}
-                      {servicio.estado}
+                      {(servicio.estado === 'pendiente' || servicio.estado === 'PENDIENTE') && <i className="fas fa-clock text-xs mr-1"></i>}
+                      {(servicio.estado === 'proceso' || servicio.estado === 'PROCESO') && <i className="fas fa-spinner text-xs mr-1"></i>}
+                      {(servicio.estado === 'completado' || servicio.estado === 'COMPLETADO') && <i className="fas fa-check-circle text-xs mr-1"></i>}
+                      {(servicio.estado === 'cancelado' || servicio.estado === 'CANCELADO') && <i className="fas fa-times-circle text-xs mr-1"></i>}
+                      {(() => {
+                        switch (servicio.estado) {
+                          case 'PROCESO': 
+                          case 'proceso': 
+                            return 'En Proceso';
+                          case 'COMPLETADO': 
+                          case 'completado': 
+                            return 'Completado';
+                          case 'PENDIENTE': 
+                          case 'pendiente': 
+                            return 'Pendiente';
+                          case 'CANCELADO': 
+                          case 'cancelado': 
+                            return 'Cancelado';
+                          default: 
+                            return servicio.estado;
+                        }
+                      })()}
                     </span>
                   </td>
                   <td className="py-4 px-6 text-center pr-8">
