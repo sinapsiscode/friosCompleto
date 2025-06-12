@@ -501,24 +501,50 @@ const Servicios = () => {
                   <td className="py-4 px-6 text-gray-800 text-base">{fechaMostrar ? new Date(fechaMostrar).toLocaleDateString() : 'Sin fecha'}</td>
                   <td className="py-4 px-6 text-gray-800 text-base">{cliente?.razonSocial || `${cliente?.nombre} ${cliente?.apellido}` || 'Sin cliente'}</td>
                   <td className="py-4 px-6 text-gray-800 text-base">
-                    {servicio.detalles?.solicitadoPor ? (
-                      <span className={`inline-flex items-center gap-1 py-1 px-3 rounded-full text-xs font-medium ${
-                        servicio.detalles.solicitadoPor === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
-                        servicio.detalles.solicitadoPor === 'TECNICO' ? 'bg-blue-100 text-blue-700' :
-                        'bg-green-100 text-green-700'
-                      }`}>
-                        <i className={`fas ${
-                          servicio.detalles.solicitadoPor === 'ADMIN' ? 'fa-user-shield' :
-                          servicio.detalles.solicitadoPor === 'TECNICO' ? 'fa-user-cog' :
-                          'fa-user'
-                        } text-xs`}></i>
-                        {servicio.detalles.solicitadoPor === 'ADMIN' ? 'Administrador' :
-                         servicio.detalles.solicitadoPor === 'TECNICO' ? 'Técnico' :
-                         'Cliente'}
-                      </span>
-                    ) : (
-                      <span className="text-gray-500">-</span>
-                    )}
+                    {(() => {
+                      // Obtener información de quién solicitó del campo detalles
+                      const solicitadoPor = servicio.detalles?.solicitadoPor;
+                      
+                      let tipo, nombre, icono, color;
+                      
+                      if (solicitadoPor) {
+                        if (typeof solicitadoPor === 'object') {
+                          // Formato nuevo: objeto con tipo, nombre, etc.
+                          tipo = solicitadoPor.tipo?.toLowerCase();
+                          nombre = solicitadoPor.nombre;
+                        } else if (typeof solicitadoPor === 'string') {
+                          // Formato antiguo: string directo
+                          tipo = solicitadoPor.toLowerCase();
+                        }
+                      }
+                      
+                      // Determinar el display basado en el tipo
+                      if (tipo === 'admin') {
+                        icono = 'fa-user-shield';
+                        color = 'bg-purple-100 text-purple-700';
+                        nombre = nombre || 'Administrador';
+                      } else if (tipo === 'tecnico') {
+                        icono = 'fa-user-cog';
+                        color = 'bg-blue-100 text-blue-700';
+                        nombre = nombre || 'Técnico';
+                      } else if (tipo === 'cliente') {
+                        icono = 'fa-user';
+                        color = 'bg-green-100 text-green-700';
+                        nombre = nombre || 'Cliente';
+                      } else {
+                        // Fallback: asumir que fue cliente si no hay información
+                        icono = 'fa-user';
+                        color = 'bg-green-100 text-green-700';
+                        nombre = 'Cliente';
+                      }
+                      
+                      return (
+                        <span className={`inline-flex items-center gap-1 py-1 px-3 rounded-full text-xs font-medium ${color}`}>
+                          <i className={`fas ${icono} text-xs`}></i>
+                          {nombre}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="py-4 px-6 text-gray-800 text-base">
                     {tecnico ? (
