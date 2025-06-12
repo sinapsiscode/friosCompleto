@@ -1,8 +1,12 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
 import { useNavigate } from 'react-router-dom';
 import ServicioModal from '../../components/Forms/ServicioModal';
 import OrdenesChart from '../../components/Common/OrdenesChart';
+import servicioService from '../../services/servicio.service';
+import clienteService from '../../services/cliente.service';
+import tecnicoService from '../../services/tecnico.service';
+import equipoService from '../../services/equipo.service';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -10,34 +14,92 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [selectedServicio, setSelectedServicio] = useState(null);
-  
-  const proximosServicios = (data.servicios || [])
-    .filter(s => s.estado === 'pendiente')
-    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+  const [loading, setLoading] = useState(true);
+  const [estadisticas, setEstadisticas] = useState({
+    servicios: [],
+    clientes: [],
+    tecnicos: [],
+    equipos: []
+  });
+
+  // Cargar datos del backend
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Cargar todos los datos en paralelo
+        const [serviciosRes, clientesRes, tecnicosRes, equiposRes] = await Promise.all([
+          servicioService.getAll({ limit: 100 }),
+          clienteService.getAll({ limit: 100 }),
+          tecnicoService.getAll({ limit: 100 }),
+          equipoService.getAll({ limit: 100 })
+        ]);
+
+        console.log('📊 Datos del dashboard cargados:', {
+          servicios: serviciosRes.data?.length || 0,
+          clientes: clientesRes.data?.length || 0,
+          tecnicos: tecnicosRes.data?.length || 0,
+          equipos: equiposRes.data?.length || 0
+        });
+
+        setEstadisticas({
+          servicios: serviciosRes.data || [],
+          clientes: clientesRes.data || [],
+          tecnicos: tecnicosRes.data || [],
+          equipos: equiposRes.data || []
+        });
+        
+      } catch (error) {
+        console.error('Error cargando datos del dashboard:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, []);
+
+  // Usar datos del backend en lugar de data.servicios
+  const servicios = estadisticas.servicios;
+  const clientes = estadisticas.clientes;
+  const tecnicos = estadisticas.tecnicos;
+  const equipos = estadisticas.equipos;
+
+  const proximosServicios = servicios
+    .filter(s => s.estado === 'PENDIENTE')
+    .sort((a, b) => new Date(a.fechaProgramada) - new Date(b.fechaProgramada))
     .slice(0, 5);
 
-  const actividadReciente = (data.servicios || [])
+  const actividadReciente = servicios
     .map(s => ({ ...s, tipo: 'servicio' }))
-    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    .sort((a, b) => new Date(b.fechaProgramada) - new Date(a.fechaProgramada))
     .slice(0, 5);
 
   // Calculate programmed vs completed orders for current month
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   
-  const ordenesProgramadas = (data.servicios || []).filter(s => {
-    const servicioDate = new Date(s.fecha);
+  const ordenesProgramadas = servicios.filter(s => {
+    const servicioDate = new Date(s.fechaProgramada);
     return servicioDate.getMonth() === currentMonth && 
            servicioDate.getFullYear() === currentYear &&
-           (s.tipo === 'programado' || s.tipo === 'preventivo');
+           s.tipoServicio === 'programado';
   }).length;
   
-  const ordenesRealizadas = (data.servicios || []).filter(s => {
-    const servicioDate = new Date(s.fecha);
+  const ordenesRealizadas = servicios.filter(s => {
+    const servicioDate = new Date(s.fechaProgramada);
     return servicioDate.getMonth() === currentMonth && 
            servicioDate.getFullYear() === currentYear &&
-           s.estado === 'completado';
+           s.estado === 'COMPLETADO';
   }).length;
+
+  // Calcular estadísticas
+  const serviciosActivos = servicios.filter(s => s.estado !== 'COMPLETADO' && s.estado !== 'CANCELADO').length;
+  const tecnicosDisponibles = tecnicos.filter(t => t.disponibilidad === 'DISPONIBLE').length;
+  const clientesActivos = clientes.filter(c => c.isActive).length;
+  const equiposOperativos = equipos.filter(e => e.estadoOperativo === 'operativo').length;
+  const equiposTotal = equipos.length;
 
   const handleNuevoServicio = () => {
     setSelectedServicio(null);
@@ -48,6 +110,17 @@ const AdminDashboard = () => {
     setSelectedServicio(servicio);
     setShowModal(true);
   };
+
+  if (loading) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <i className="fas fa-spinner fa-spin text-4xl text-primary mb-4"></i>
+          <p className="text-gray-600">Cargando dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full min-h-screen overflow-y-auto pt-4 lg:pt-8 px-4 lg:px-8 pb-4 bg-gray-50 animate-fadeIn">
@@ -75,7 +148,7 @@ const AdminDashboard = () => {
           </div>
           <div className="card-content">
             <h3 className="card-label">ÓRDENES DE TRABAJO ACTIVAS</h3>
-            <div className="card-value">{data.estadisticas?.servicios?.totales || 0}</div>
+            <div className="card-value">{serviciosActivos}</div>
             <div className="card-metric">
               <span className="card-metric-value positive">
                 <i className="fas fa-arrow-up text-xs"></i> +12%
@@ -91,9 +164,9 @@ const AdminDashboard = () => {
           </div>
           <div className="card-content">
             <h3 className="card-label">TÉCNICOS DISPONIBLES</h3>
-            <div className="card-value">{data.estadisticas?.tecnicos?.disponibles || 0}</div>
+            <div className="card-value">{tecnicosDisponibles}</div>
             <div className="card-metric">
-              <span className="card-metric-value neutral">8 de 10</span>
+              <span className="card-metric-value neutral">{tecnicosDisponibles} de {tecnicos.length}</span>
               <span className="card-metric-label">disponibles</span>
             </div>
           </div>
@@ -105,7 +178,7 @@ const AdminDashboard = () => {
           </div>
           <div className="card-content">
             <h3 className="card-label">CLIENTES ACTIVOS</h3>
-            <div className="card-value">{data.estadisticas?.clientes?.activos || 0}</div>
+            <div className="card-value">{clientesActivos}</div>
             <div className="card-metric">
               <span className="card-metric-value positive">
                 <i className="fas fa-arrow-up text-xs"></i> +5
@@ -121,9 +194,9 @@ const AdminDashboard = () => {
           </div>
           <div className="card-content">
             <h3 className="card-label">EQUIPOS REGISTRADOS</h3>
-            <div className="card-value">{data.estadisticas?.equipos?.total || 0}</div>
+            <div className="card-value">{equiposTotal}</div>
             <div className="card-metric">
-              <span className="card-metric-value neutral">95%</span>
+              <span className="card-metric-value neutral">{equiposTotal > 0 ? Math.round((equiposOperativos / equiposTotal) * 100) : 0}%</span>
               <span className="card-metric-label">operativos</span>
             </div>
           </div>
@@ -144,8 +217,8 @@ const AdminDashboard = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
               <span className="text-sm font-medium text-gray-700">Total del Mes</span>
-              <span className="text-lg font-bold text-gray-900">{(data.servicios || []).filter(s => {
-                const date = new Date(s.fecha);
+              <span className="text-lg font-bold text-gray-900">{servicios.filter(s => {
+                const date = new Date(s.fechaProgramada);
                 return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
               }).length}</span>
             </div>
@@ -159,11 +232,11 @@ const AdminDashboard = () => {
             </div>
             <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
               <span className="text-sm font-medium text-orange-700">En Proceso</span>
-              <span className="text-lg font-bold text-orange-900">{(data.servicios || []).filter(s => s.estado === 'proceso').length}</span>
+              <span className="text-lg font-bold text-orange-900">{servicios.filter(s => s.estado === 'PROCESO').length}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
               <span className="text-sm font-medium text-red-700">Canceladas</span>
-              <span className="text-lg font-bold text-red-900">{(data.servicios || []).filter(s => s.estado === 'cancelado').length}</span>
+              <span className="text-lg font-bold text-red-900">{servicios.filter(s => s.estado === 'CANCELADO').length}</span>
             </div>
           </div>
         </div>
@@ -199,14 +272,14 @@ const AdminDashboard = () => {
                 </thead>
                 <tbody>
                   {proximosServicios.map(servicio => {
-                    const cliente = (data.clientes || []).find(c => c.id === servicio.clienteId);
-                    const tecnico = (data.tecnicos || []).find(t => t.id === servicio.tecnicoId);
+                    const cliente = servicio.cliente || clientes.find(c => c.id === servicio.clienteId);
+                    const tecnico = servicio.tecnico || tecnicos.find(t => t.id === servicio.tecnicoId);
                     return (
                       <tr key={servicio.id} className="transition-all duration-300 border-b border-gray-100 hover:bg-gray-50">
                         <td className="px-2 lg:px-md py-2 lg:py-md align-middle">
                           <div className="flex flex-col gap-xs">
-                            <div className="font-semibold text-gray-900 text-xs lg:text-sm">{new Date(servicio.fecha).toLocaleDateString()}</div>
-                            <div className="text-xs text-gray-600">{servicio.hora || '09:00'}</div>
+                            <div className="font-semibold text-gray-900 text-xs lg:text-sm">{new Date(servicio.fechaProgramada).toLocaleDateString()}</div>
+                            <div className="text-xs text-gray-600">{servicio.horaInicio || '09:00'}</div>
                           </div>
                         </td>
                         <td className="px-2 lg:px-md py-2 lg:py-md align-middle">
@@ -227,23 +300,23 @@ const AdminDashboard = () => {
                         </td>
                         <td className="px-2 lg:px-md py-2 lg:py-md align-middle">
                           <span className={`px-xs py-xs rounded-[20px] text-xs font-medium text-transform-capitalize inline-block ${
-                            servicio.tipo === 'preventivo' ? 'bg-info/15 text-info' : 
-                            servicio.tipo === 'correctivo' ? 'bg-warning/15 text-warning-dark' : 
+                            servicio.tipoServicio === 'programado' ? 'bg-info/15 text-info' : 
+                            servicio.tipoServicio === 'correctivo' ? 'bg-warning/15 text-warning-dark' : 
                             'bg-gray-100 text-gray-700'
                           }`}>
-                            {servicio.tipo === 'preventivo' ? 'Prev.' : servicio.tipo === 'correctivo' ? 'Corr.' : servicio.tipo}
+                            {servicio.tipoServicio === 'programado' ? 'Prog.' : servicio.tipoServicio === 'correctivo' ? 'Corr.' : servicio.tipoServicio}
                           </span>
                         </td>
                         <td className="px-2 lg:px-md py-2 lg:py-md align-middle">
                           <span className={`px-xs py-xs rounded-[20px] text-xs font-medium text-transform-capitalize inline-block ${
-                            servicio.estado === 'pendiente' ? 'bg-warning/15 text-warning-dark' :
-                            servicio.estado === 'proceso' ? 'bg-primary/15 text-primary' :
-                            servicio.estado === 'completado' ? 'bg-success/15 text-success' :
+                            servicio.estado === 'PENDIENTE' ? 'bg-warning/15 text-warning-dark' :
+                            servicio.estado === 'PROCESO' ? 'bg-primary/15 text-primary' :
+                            servicio.estado === 'COMPLETADO' ? 'bg-success/15 text-success' :
                             'bg-gray-100 text-gray-700'
                           }`}>
-                            {servicio.estado === 'pendiente' ? 'Pend.' : 
-                             servicio.estado === 'proceso' ? 'Proc.' : 
-                             servicio.estado === 'completado' ? 'Comp.' : servicio.estado}
+                            {servicio.estado === 'PENDIENTE' ? 'Pend.' : 
+                             servicio.estado === 'PROCESO' ? 'Proc.' : 
+                             servicio.estado === 'COMPLETADO' ? 'Comp.' : servicio.estado}
                           </span>
                         </td>
                         <td className="px-2 lg:px-md py-2 lg:py-md align-middle">
@@ -285,17 +358,18 @@ const AdminDashboard = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-xs">
                       <h4 className="text-sm font-semibold text-gray-900 m-0">
-                        Orden de Trabajo
+                        {actividad.numeroOrden || 'Orden de Trabajo'}
                       </h4>
                       <span className="text-xs text-gray-500 whitespace-nowrap">
-                        {new Date(actividad.fecha).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(actividad.fechaProgramada).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                     <p className="text-[13px] text-gray-700 m-0 mb-sm overflow-hidden text-ellipsis whitespace-nowrap">{actividad.descripcion}</p>
                     <div className="flex items-center gap-md">
                       <span className={`text-xs font-medium text-transform-capitalize px-sm py-0.5 rounded-sm ${
-                        actividad.estado === 'pendiente' ? 'bg-warning/15 text-warning-dark' :
-                        actividad.estado === 'aprobada' || actividad.estado === 'completado' ? 'bg-success/15 text-success' :
+                        actividad.estado === 'PENDIENTE' ? 'bg-warning/15 text-warning-dark' :
+                        actividad.estado === 'COMPLETADO' ? 'bg-success/15 text-success' :
+                        actividad.estado === 'PROCESO' ? 'bg-primary/15 text-primary' :
                         'bg-gray-100 text-gray-700'
                       }`}>
                         {actividad.estado}
