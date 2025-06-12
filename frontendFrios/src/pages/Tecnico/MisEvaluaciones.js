@@ -7,7 +7,7 @@ const MisEvaluaciones = () => {
   const { user } = useContext(AuthContext);
   const [filterCalificacion, setFilterCalificacion] = useState('todas');
   
-  // Buscar el técnico actual con lógica mejorada
+  // Buscar el técnico actual con lógica mejorada y validación
   const tecnicoActual = data.tecnicos.find(t => {
     // Si tiene usuario.username (estructura del backend)
     if (t.usuario && t.usuario.username) {
@@ -18,12 +18,19 @@ const MisEvaluaciones = () => {
       return true;
     }
     return false;
-  }) || data.tecnicos[0];
+  }) || data.tecnicos[0] || {
+    // Datos estáticos de fallback si no se encuentra técnico
+    id: 'tecnico-demo',
+    nombre: 'Técnico',
+    apellido: 'Demo',
+    usuario: { username: user?.username || 'tecnico' },
+    especialidad: 'General'
+  };
   
-  // Obtener servicios con evaluaciones del técnico
-  const misServiciosConEvaluacion = data.servicios.filter(
-    s => s.tecnicoId === tecnicoActual.id && s.evaluacion
-  );
+  // Obtener servicios con evaluaciones del técnico (con validación)
+  const misServiciosConEvaluacion = tecnicoActual && tecnicoActual.id 
+    ? data.servicios.filter(s => s.tecnicoId === tecnicoActual.id && s.evaluacion)
+    : [];
 
   // Filtrar por calificación
   const filteredEvaluaciones = misServiciosConEvaluacion.filter(servicio => {
@@ -177,7 +184,7 @@ const MisEvaluaciones = () => {
         {filteredEvaluaciones.length > 0 ? (
           filteredEvaluaciones.map(servicio => {
             const cliente = data.clientes.find(c => c.id === servicio.clienteId);
-            const equipos = data.equipos.filter(e => servicio.equipos.includes(e.id));
+            const equipos = data.equipos.filter(e => servicio.equipos?.includes(e.id));
             
             return (
               <div key={servicio.id} className="bg-gray-50 border border-gray-200 rounded-lg p-6 hover:bg-white hover:border-warning transition-all duration-300 relative overflow-hidden group">

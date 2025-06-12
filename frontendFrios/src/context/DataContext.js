@@ -1,5 +1,4 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { dummyData as initialData } from '../utils/dummyData';
 import clienteService from '../services/cliente.service';
 import tecnicoService from '../services/tecnico.service';
 import equipoService from '../services/equipo.service';
@@ -10,16 +9,26 @@ export const DataContext = createContext();
 export const DataProvider = ({ children }) => {
   const { useBackend } = useContext(AuthContext);
   const [data, setData] = useState(() => {
-    const savedData = localStorage.getItem('frioServiceData');
-    const baseData = savedData ? JSON.parse(savedData) : initialData;
+    console.log('🔍 === FORZANDO USO EXCLUSIVO DEL BACKEND ===');
+    console.log('❌ NO usar localStorage ni dummyData');
+    console.log('✅ Solo datos del backend');
     
-    // Asegurar que existan todas las colecciones necesarias
-    return {
-      ...baseData,
-      repuestos: baseData.repuestos || [],
-      herramientas: baseData.herramientas || [],
-      administradores: baseData.administradores || initialData.administradores || []
+    // Limpiar localStorage existente
+    localStorage.removeItem('frioServiceData');
+    
+    // Estado inicial vacío - será poblado solo desde el backend
+    const emptyData = {
+      tecnicos: [],
+      clientes: [],
+      equipos: [],
+      servicios: [],
+      repuestos: [],
+      herramientas: [],
+      administradores: []
     };
+    
+    console.log('🚀 Estado inicial vacío - esperando datos del backend');
+    return emptyData;
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -69,7 +78,6 @@ export const DataProvider = ({ children }) => {
         }));
       } else {
         console.error('❌ Error al cargar técnicos:', tecnicosResponse.message);
-        console.log('⚠️ Usando datos dummy para técnicos');
       }
       
       // Cargar equipos del backend
@@ -86,7 +94,6 @@ export const DataProvider = ({ children }) => {
         }));
       } else {
         console.error('❌ Error al cargar equipos:', equiposResponse.message);
-        console.log('⚠️ Usando datos dummy para equipos');
       }
       
     } catch (error) {
@@ -105,6 +112,10 @@ export const DataProvider = ({ children }) => {
       loadBackendData();
     } else {
       console.log('⚠️ Backend deshabilitado, no se cargarán datos del servidor');
+      console.log('📊 Datos actuales en modo dummy:');
+      console.log('  - Clientes:', data.clientes?.length || 0);
+      console.log('  - Equipos:', data.equipos?.length || 0);
+      console.log('  - Cliente "cliente":', data.clientes?.find(c => c.usuario === 'cliente'));
     }
   }, [useBackend]);
 
@@ -121,12 +132,12 @@ export const DataProvider = ({ children }) => {
     return () => window.removeEventListener('userLoggedIn', handleUserLogin);
   }, [useBackend, loadBackendData]);
 
-  // Guardar en localStorage solo si no usamos backend
+  // NO guardar en localStorage - solo usar backend
   useEffect(() => {
-    if (!useBackend) {
-      localStorage.setItem('frioServiceData', JSON.stringify(data));
-    }
-  }, [data, useBackend]);
+    console.log('❌ localStorage deshabilitado - solo backend');
+    // Limpiar cualquier dato previo
+    localStorage.removeItem('frioServiceData');
+  }, [data]);
 
   const updateData = (key, newData) => {
     setData(prev => ({

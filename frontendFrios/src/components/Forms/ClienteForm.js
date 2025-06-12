@@ -9,30 +9,6 @@ const ClienteForm = ({ cliente, onClose, onSuccess }) => {
   const { useBackend } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   
-  // Ubicaciones predefinidas para empresas
-  const ubicacionesDisponibles = [
-    {
-      nombre: 'Lima',
-      direccion: '09 asentamiento humano Simón Bolívar mz f-1',
-      telefono: '901 93 63 15',
-      ciudad: 'Lima, Lima',
-      distrito: 'San Juan de Lurigancho'
-    },
-    {
-      nombre: 'Rimac',
-      direccion: '09 asentamiento humano Simón Bolívar mz f-1',
-      telefono: '901 93 63 15',
-      ciudad: 'Lima, Lima',
-      distrito: 'Miraflores'
-    },
-    {
-      nombre: 'Norte',
-      direccion: 'Av. Universitaria 1801',
-      telefono: '901 93 63 15',
-      ciudad: 'Lima, Lima',
-      distrito: 'Los Olivos'
-    }
-  ];
   
   const [formData, setFormData] = useState({
     tipo: 'persona',
@@ -85,8 +61,11 @@ const ClienteForm = ({ cliente, onClose, onSuccess }) => {
     switch(name) {
       case 'nombre':
       case 'apellido':
-        if (!value?.trim()) error = 'Este campo es requerido';
-        else if (value.trim().length < 2) error = 'Debe tener al menos 2 caracteres';
+        // Solo requerir nombre/apellido para personas naturales
+        if (formData.tipo === 'persona') {
+          if (!value?.trim()) error = 'Este campo es requerido';
+          else if (value.trim().length < 2) error = 'Debe tener al menos 2 caracteres';
+        }
         break;
       case 'dni':
         if (formData.tipo === 'persona') {
@@ -117,6 +96,7 @@ const ClienteForm = ({ cliente, onClose, onSuccess }) => {
           else if (!/^[0-9]{11}$/.test(value)) error = 'El RUC debe tener 11 dígitos';
         }
         break;
+      case 'usuario':
       case 'username':
         if (!value?.trim()) error = 'El usuario es requerido';
         else if (value.length < 4) error = 'Mínimo 4 caracteres';
@@ -471,58 +451,51 @@ const ClienteForm = ({ cliente, onClose, onSuccess }) => {
                 <h3 className="text-xl font-semibold text-gray-800 m-0">Ubicación de la Empresa</h3>
               </div>
               
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="lg:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Dirección de la Empresa {!cliente && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    name="direccion"
+                    value={formData.direccion || ''}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    required={!cliente}
+                    placeholder="Ej: Av. Javier Prado Este 2875, Piso 5, Oficina 501"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Ingrese la dirección completa de la empresa (incluya piso, oficina, referencias, etc.)
+                  </p>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Seleccione la ubicación *
+                    Distrito {!cliente && <span className="text-red-500">*</span>}
                   </label>
-                  <select
-                    onChange={(e) => {
-                      const selectedOption = e.target.value;
-                      if (selectedOption) {
-                        const [direccion, distrito] = selectedOption.split('|');
-                        setFormData(prev => ({
-                          ...prev,
-                          direccion: direccion,
-                          distrito: distrito,
-                          ciudad: 'Lima'
-                        }));
-                      }
-                    }}
+                  <input
+                    type="text"
+                    name="distrito"
+                    value={formData.distrito || ''}
+                    onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    required
-                    value={formData.direccion && formData.distrito ? `${formData.direccion}|${formData.distrito}` : ''}
-                  >
-                    <option value="">Seleccione una ubicación</option>
-                    <option value="Av. Javier Prado Este 2875|San Borja">Av. Javier Prado Este 2875 - San Borja</option>
-                    <option value="Av. Larco 1301|Miraflores">Av. Larco 1301 - Miraflores</option>
-                    <option value="Av. Primavera 2390|Santiago de Surco">Av. Primavera 2390 - Santiago de Surco</option>
-                    <option value="Av. Salaverry 3100|San Isidro">Av. Salaverry 3100 - San Isidro</option>
-                    <option value="Av. La Marina 2000|San Miguel">Av. La Marina 2000 - San Miguel</option>
-                    <option value="Av. Universitaria 1801|Los Olivos">Av. Universitaria 1801 - Los Olivos</option>
-                    <option value="Av. Brasil 2600|Jesús María">Av. Brasil 2600 - Jesús María</option>
-                    <option value="Av. Angamos Este 2520|Surquillo">Av. Angamos Este 2520 - Surquillo</option>
-                    <option value="Av. Benavides 5440|Santiago de Surco">Av. Benavides 5440 - Santiago de Surco</option>
-                    <option value="Av. Arequipa 2450|Lince">Av. Arequipa 2450 - Lince</option>
-                  </select>
+                    required={!cliente}
+                    placeholder="Ej: San Borja"
+                  />
                 </div>
-                
-                {formData.direccion && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 bg-white rounded-lg border border-gray-200">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">Dirección</label>
-                      <p className="text-gray-800">{formData.direccion}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">Distrito</label>
-                      <p className="text-gray-800">{formData.distrito}</p>
-                    </div>
-                    <div className="lg:col-span-2">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">Ciudad</label>
-                      <p className="text-gray-800">{formData.ciudad || 'Lima'}</p>
-                    </div>
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ciudad
+                  </label>
+                  <input
+                    type="text"
+                    name="ciudad"
+                    value={formData.ciudad || 'Lima'}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    placeholder="Lima"
+                  />
+                </div>
               </div>
             </div>
           </>

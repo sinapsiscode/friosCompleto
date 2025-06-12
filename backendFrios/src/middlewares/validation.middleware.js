@@ -138,11 +138,19 @@ const schemas = {
       'string.min': 'La contraseña debe tener al menos 6 caracteres',
       'any.required': 'La contraseña es requerida'
     }),
-    nombre: Joi.string().required().messages({
-      'any.required': 'El nombre es requerido'
+    nombre: Joi.string().when('tipo', {
+      is: 'persona',
+      then: Joi.string().required().messages({
+        'any.required': 'El nombre es requerido para personas naturales'
+      }),
+      otherwise: Joi.string().optional().allow('')
     }),
-    apellido: Joi.string().required().messages({
-      'any.required': 'El apellido es requerido'
+    apellido: Joi.string().when('tipo', {
+      is: 'persona', 
+      then: Joi.string().required().messages({
+        'any.required': 'El apellido es requerido para personas naturales'
+      }),
+      otherwise: Joi.string().optional().allow('')
     }),
     telefono: Joi.string().optional(),
     direccion: Joi.string().optional(),
@@ -162,7 +170,7 @@ const schemas = {
     dni: Joi.string().when('tipo', {
       is: 'persona',
       then: Joi.string().pattern(/^[0-9]{8}$/).optional(),
-      otherwise: Joi.string().optional()
+      otherwise: Joi.string().optional().allow('')
     }),
     sector: Joi.string().optional(),
     equipos: Joi.alternatives().try(

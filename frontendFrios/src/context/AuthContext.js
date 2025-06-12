@@ -31,6 +31,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await api.get('/health');
       console.log('✅ Backend conectado - Usando API con sesiones independientes');
+      console.log('🔧 Forzando useBackend = true para usar datos del backend');
       setUseBackend(true);
     } catch (error) {
       console.log('⚠️ Backend no disponible - Usando datos estáticos');

@@ -455,7 +455,7 @@ const servicioController = {
       const { tecnicoId, fechaProgramada } = req.body;
 
       const servicio = await prisma.servicio.findUnique({
-        where: { id: parseInt(id) }
+        where: { id: id }
       });
 
       if (!servicio) {
@@ -477,15 +477,10 @@ const servicioController = {
         });
       }
 
-      if (tecnico.disponibilidad !== 'DISPONIBLE') {
-        return res.status(400).json({
-          success: false,
-          message: 'El técnico no está disponible actualmente'
-        });
-      }
+      // Los técnicos siempre pueden ser asignados independientemente de su disponibilidad
 
       const servicioActualizado = await prisma.servicio.update({
-        where: { id: parseInt(id) },
+        where: { id: id },
         data: {
           tecnicoId: parseInt(tecnicoId),
           fechaProgramada: fechaProgramada ? new Date(fechaProgramada) : servicio.fechaProgramada,

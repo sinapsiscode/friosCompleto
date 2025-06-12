@@ -873,7 +873,20 @@ const SolicitarServicio = () => {
       });
       
       console.log('✅ Cliente encontrado:', cliente);
-      setClienteActual(cliente);
+      if (cliente) {
+        setClienteActual(cliente);
+      } else {
+        // Datos estáticos de fallback si no se encuentra cliente
+        const clienteEstatico = {
+          id: 'cliente-demo',
+          usuario: user?.username || 'cliente',
+          nombre: 'Cliente',
+          apellido: 'Demo',
+          razonSocial: 'Empresa Demo S.A.C.',
+          equipos: []
+        };
+        setClienteActual(clienteEstatico);
+      }
     }
   }, [data.clientes, user]);
 

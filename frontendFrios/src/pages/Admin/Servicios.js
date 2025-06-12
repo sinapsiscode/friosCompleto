@@ -697,7 +697,7 @@ const Servicios = () => {
                     {servicioToAssign.descripcion}
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
-                    Fecha: {new Date(servicioToAssign.fecha).toLocaleDateString()}
+                    Fecha: {new Date(servicioToAssign.fechaProgramada || servicioToAssign.fechaSolicitud).toLocaleDateString()}
                   </p>
                   {servicioToAssign.tecnicoId && (
                     <p className="text-xs text-amber-600 mt-1">
@@ -718,11 +718,15 @@ const Servicios = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
               >
                 <option value="">-- Seleccione un técnico --</option>
-                {tecnicosActuales.map(tecnico => (
-                  <option key={tecnico.id} value={tecnico.id}>
-                    {tecnico.nombre} {tecnico.apellido} {tecnico.especialidad ? `- ${tecnico.especialidad}` : ''}
-                  </option>
-                ))}
+                {console.log('🔍 tecnicosActuales en dropdown:', tecnicosActuales)}
+                {tecnicosActuales.map(tecnico => {
+                  console.log('👨‍🔧 Renderizando técnico:', tecnico);
+                  return (
+                    <option key={tecnico.id} value={tecnico.id}>
+                      {tecnico.nombre} {tecnico.apellido} {tecnico.especialidad ? `- ${tecnico.especialidad}` : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             

@@ -10,7 +10,7 @@ const HistorialTrabajos = () => {
   const [selectedServicio, setSelectedServicio] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   
-  // Buscar el técnico actual con lógica mejorada
+  // Buscar el técnico actual con lógica mejorada y validación
   const tecnicoActual = data.tecnicos.find(t => {
     // Si tiene usuario.username (estructura del backend)
     if (t.usuario && t.usuario.username) {
@@ -21,12 +21,19 @@ const HistorialTrabajos = () => {
       return true;
     }
     return false;
-  }) || data.tecnicos[0];
+  }) || data.tecnicos[0] || {
+    // Datos estáticos de fallback si no se encuentra técnico
+    id: 'tecnico-demo',
+    nombre: 'Técnico',
+    apellido: 'Demo',
+    usuario: { username: user?.username || 'tecnico' },
+    especialidad: 'General'
+  };
   
-  // Obtener servicios completados y cancelados del técnico
-  const misServiciosHistorial = data.servicios.filter(
-    s => s.tecnicoId === tecnicoActual.id && (s.estado === 'completado' || s.estado === 'cancelado')
-  );
+  // Obtener servicios completados y cancelados del técnico (con validación)
+  const misServiciosHistorial = tecnicoActual && tecnicoActual.id 
+    ? data.servicios.filter(s => s.tecnicoId === tecnicoActual.id && (s.estado === 'completado' || s.estado === 'cancelado'))
+    : [];
 
   // Filtrar servicios
   const filteredServicios = misServiciosHistorial.filter(servicio => {
@@ -190,7 +197,7 @@ const HistorialTrabajos = () => {
                 <div className="space-y-4">
                   {mesData.servicios.map(servicio => {
                     const cliente = data.clientes.find(c => c.id === servicio.clienteId);
-                    const equipos = data.equipos.filter(e => servicio.equipos.includes(e.id));
+                    const equipos = data.equipos.filter(e => servicio.equipos?.includes(e.id));
                     
                     return (
                       <div key={servicio.id} className="flex gap-4 p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-white hover:border-primary transition-all duration-300 relative overflow-hidden group">
@@ -352,7 +359,7 @@ const HistorialTrabajos = () => {
                     Equipos Atendidos
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {data.equipos.filter(e => selectedServicio.equipos.includes(e.id)).map(equipo => (
+                    {data.equipos.filter(e => selectedServicio.equipos?.includes(e.id)).map(equipo => (
                       <div key={equipo.id} className="p-3 border border-gray-200 rounded-lg">
                         <p className="font-medium text-gray-900">{equipo.tipo} {equipo.marca} {equipo.modelo}</p>
                         <p className="text-sm text-gray-600">Serial: {equipo.serial}</p>

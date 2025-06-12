@@ -17,25 +17,80 @@ const MisEquipos = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [equipoToDelete, setEquipoToDelete] = useState(null);
 
+  // Utility function to reset localStorage if needed (for debugging)
+  const resetLocalStorage = () => {
+    console.log('🔄 Resetting localStorage...');
+    localStorage.removeItem('frioServiceData');
+    window.location.reload();
+  };
+
   useEffect(() => {
+    console.log('🔍 === DEBUGGING MIS EQUIPOS - DATA FLOW ===');
+    console.log('👤 Usuario logueado:', user);
+    console.log('📋 data.clientes:', data.clientes);
+    console.log('🔧 data.equipos:', data.equipos);
+    
     // Buscar el cliente actual basándose en el usuario logueado
     const cliente = data.clientes.find(c => c.usuario === user.username);
-    setClienteActual(cliente);
+    console.log('🔍 Cliente encontrado:', cliente);
+    
+    if (cliente) {
+      console.log('✅ Cliente encontrado con equipos:', cliente.equipos);
+      setClienteActual(cliente);
+    } else {
+      console.log('⚠️ Cliente no encontrado, usando datos estáticos');
+      // Datos estáticos de fallback si no se encuentra cliente
+      const clienteEstatico = {
+        id: 'cliente-demo',
+        usuario: user?.username || 'cliente',
+        nombre: 'Cliente',
+        apellido: 'Demo',
+        razonSocial: 'Empresa Demo S.A.C.',
+        equipos: []
+      };
+      console.log('📝 Cliente estático creado:', clienteEstatico);
+      setClienteActual(clienteEstatico);
+    }
   }, [data.clientes, user]);
 
+  // Método 1: Filtrar por lista de equipos del cliente
   const misEquipos = clienteActual 
-    ? data.equipos.filter(e => clienteActual.equipos.includes(e.id))
+    ? data.equipos.filter(e => clienteActual.equipos && clienteActual.equipos.includes(e.id))
     : [];
 
-  const filteredEquipos = misEquipos.filter(equipo => {
-    const matchesSearch = equipo.marca.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         equipo.modelo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         equipo.ubicacion.toLowerCase().includes(searchTerm.toLowerCase());
+  // Método 2: Filtrar por clienteId directamente (alternativo)
+  const misEquiposAlt = clienteActual 
+    ? data.equipos.filter(e => e.clienteId === clienteActual.id)
+    : [];
+
+  console.log('🔍 === DEBUGGING EQUIPOS FILTERING ===');
+  console.log('👤 clienteActual:', clienteActual);
+  console.log('📋 clienteActual.equipos:', clienteActual?.equipos);
+  console.log('🔧 data.equipos:', data.equipos);
+  console.log('🎯 misEquipos (método 1):', misEquipos);
+  console.log('🎯 misEquiposAlt (método 2):', misEquiposAlt);
+  console.log('🔍 misEquipos (filtrado por equipos array):', misEquipos);
+  console.log('📊 misEquipos.length:', misEquipos.length);
+  console.log('🔍 misEquiposAlt (filtrado por clienteId):', misEquiposAlt);
+  console.log('📊 misEquiposAlt.length:', misEquiposAlt.length);
+  
+  // Usar el método alternativo si el principal no encuentra equipos
+  const equiposToUse = misEquipos.length > 0 ? misEquipos : misEquiposAlt;
+  console.log('🎯 Equipos finales a usar:', equiposToUse);
+  console.log('📊 equiposToUse.length:', equiposToUse.length);
+
+  const filteredEquipos = equiposToUse.filter(equipo => {
+    const matchesSearch = (equipo.marca?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                         (equipo.modelo?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                         (equipo.ubicacion?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     const matchesTipo = filterTipo === 'todos' || equipo.tipo === filterTipo;
     const matchesEstado = filterEstado === 'todos' || equipo.estado === filterEstado;
     
     return matchesSearch && matchesTipo && matchesEstado;
   });
+
+  console.log('🎯 filteredEquipos (después de filtros de búsqueda):', filteredEquipos);
+  console.log('📊 filteredEquipos.length:', filteredEquipos.length);
 
   const handleNuevoEquipo = () => {
     setSelectedEquipo(null);
@@ -82,8 +137,20 @@ const MisEquipos = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header minimalista */}
         <div className="mb-8">
-          <h1 className="text-3xl font-light text-gray-900 mb-2">Mis Equipos</h1>
-          <p className="text-gray-500">Gestiona y monitorea el estado de tus equipos de refrigeración</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-light text-gray-900 mb-2">Mis Equipos</h1>
+              <p className="text-gray-500">Gestiona y monitorea el estado de tus equipos de refrigeración</p>
+            </div>
+            {/* Debug button - remove in production */}
+            <button 
+              onClick={resetLocalStorage}
+              className="px-3 py-1 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
+              title="Reset localStorage (Debug)"
+            >
+              🔄 Reset Data
+            </button>
+          </div>
         </div>
 
         {/* Estadísticas minimalistas */}
@@ -92,7 +159,7 @@ const MisEquipos = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Operativos</p>
-                <p className="text-2xl font-light text-gray-900">{misEquipos.filter(e => e.estado === 'operativo').length}</p>
+                <p className="text-2xl font-light text-gray-900">{equiposToUse.filter(e => e.estado === 'operativo').length}</p>
               </div>
               <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,7 +172,7 @@ const MisEquipos = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">En mantenimiento</p>
-                <p className="text-2xl font-light text-gray-900">{misEquipos.filter(e => e.estado === 'mantenimiento').length}</p>
+                <p className="text-2xl font-light text-gray-900">{equiposToUse.filter(e => e.estado === 'mantenimiento').length}</p>
               </div>
               <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,7 +186,7 @@ const MisEquipos = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Total equipos</p>
-                <p className="text-2xl font-light text-gray-900">{misEquipos.length}</p>
+                <p className="text-2xl font-light text-gray-900">{equiposToUse.length}</p>
               </div>
               <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
