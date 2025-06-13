@@ -323,8 +323,11 @@ const DiagramaGantt = () => {
                       const cliente = data.clientes.find(c => c.id === servicio.clienteId);
                       const tecnico = data.tecnicos.find(t => t.id === servicio.tecnicoId);
                       const equipos = servicio.equipoId ? data.equipos.filter(e => e.id === servicio.equipoId) : 
-                                     (servicio.detalles && JSON.parse(servicio.detalles).equiposSeleccionados ? 
-                                      data.equipos.filter(e => JSON.parse(servicio.detalles).equiposSeleccionados.includes(e.id)) : []);
+                                     (servicio.detalles && typeof servicio.detalles === 'string' ? 
+                                      (JSON.parse(servicio.detalles).equiposSeleccionados ? 
+                                       data.equipos.filter(e => JSON.parse(servicio.detalles).equiposSeleccionados.includes(e.id)) : []) :
+                                      (servicio.detalles && servicio.detalles.equiposSeleccionados ? 
+                                       data.equipos.filter(e => servicio.detalles.equiposSeleccionados.includes(e.id)) : []));
                       const position = getPositionPercentage(servicio.fecha);
                       
                       // Calcular duración estimada según el tipo
@@ -701,8 +704,11 @@ const DiagramaGantt = () => {
                 <h3 className="font-semibold text-gray-900 mb-3">Equipos</h3>
                 {(() => {
                   const equipos = selectedServicio.equipoId ? data.equipos.filter(e => e.id === selectedServicio.equipoId) : 
-                                 (selectedServicio.detalles && JSON.parse(selectedServicio.detalles).equiposSeleccionados ? 
-                                  data.equipos.filter(e => JSON.parse(selectedServicio.detalles).equiposSeleccionados.includes(e.id)) : []);
+                                 (selectedServicio.detalles && typeof selectedServicio.detalles === 'string' ? 
+                                  (JSON.parse(selectedServicio.detalles).equiposSeleccionados ? 
+                                   data.equipos.filter(e => JSON.parse(selectedServicio.detalles).equiposSeleccionados.includes(e.id)) : []) :
+                                  (selectedServicio.detalles && selectedServicio.detalles.equiposSeleccionados ? 
+                                   data.equipos.filter(e => selectedServicio.detalles.equiposSeleccionados.includes(e.id)) : []));
                   return equipos.length > 0 ? (
                     <div className="space-y-4">
                       {equipos.map(equipo => (
