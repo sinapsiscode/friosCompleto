@@ -49,6 +49,9 @@
     "supertest": "^6.3.3",
     "@types/jest": "^29.5.8"
   },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "engines": {
     "node": ">=16.0.0"
   }

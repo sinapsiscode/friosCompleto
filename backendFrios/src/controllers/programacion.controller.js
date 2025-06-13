@@ -534,13 +534,14 @@ const programacionController = {
           const serviciosGenerados = await generarServiciosParaProgramacion(programacion, hasta);
           serviciosCreados += serviciosGenerados;
           
-          // Actualizar próxima ejecución
+          // Actualizar próxima ejecución usando la última fecha procesada
           const nuevaProximaEjecucion = calcularProximaEjecucion(
             programacion.frecuencia,
             programacion.fechaInicio,
             programacion.intervaloDias,
             programacion.diasSemana,
-            programacion.diaMes
+            programacion.diaMes,
+            programacion.ultimaEjecucion
           );
           
           await prisma.programacion.update({
@@ -585,10 +586,12 @@ const programacionController = {
 };
 
 // Función auxiliar para calcular próxima ejecución
-function calcularProximaEjecucion(frecuencia, fechaInicio, intervaloDias = null, diasSemana = null, diaMes = null) {
+function calcularProximaEjecucion(frecuencia, fechaInicio, intervaloDias = null, diasSemana = null, diaMes = null, ultimaEjecucion = null) {
   const ahora = new Date();
   const inicio = new Date(fechaInicio);
-  let proxima = new Date(Math.max(ahora.getTime(), inicio.getTime()));
+  
+  // Usar la última ejecución como punto de partida si existe, sino usar fechaInicio
+  let proxima = ultimaEjecucion ? new Date(ultimaEjecucion) : new Date(Math.max(ahora.getTime(), inicio.getTime()));
   
   switch (frecuencia) {
     case 'DIARIO':
@@ -646,28 +649,40 @@ async function generarServiciosParaProgramacion(programacion, fechaHasta) {
   let serviciosCreados = 0;
   let fechaActual = new Date(programacion.proximaEjecucion || programacion.fechaInicio);
   
+  // Usar mutex para evitar condiciones de carrera
+  const lockKey = `programacion_${programacion.id}`;
+  
   while (fechaActual <= fechaHasta) {
-    // Verificar si ya existe un servicio para esta fecha
-    const existeServicio = await prisma.servicio.findFirst({
-      where: {
-        programacionId: programacion.id,
-        fechaProgramada: {
-          gte: new Date(fechaActual.getFullYear(), fechaActual.getMonth(), fechaActual.getDate()),
-          lt: new Date(fechaActual.getFullYear(), fechaActual.getMonth(), fechaActual.getDate() + 1)
+    // Usar transacción para verificación y creación atómica
+    const servicioCreado = await prisma.$transaction(async (tx) => {
+      // Verificación más específica de servicios existentes
+      const existeServicio = await tx.servicio.findFirst({
+        where: {
+          programacionId: programacion.id,
+          fechaProgramada: {
+            gte: new Date(fechaActual.getFullYear(), fechaActual.getMonth(), fechaActual.getDate()),
+            lt: new Date(fechaActual.getFullYear(), fechaActual.getMonth(), fechaActual.getDate() + 1)
+          },
+          horaInicio: programacion.horaInicio,
+          isActive: true
         }
+      });
+      
+      if (existeServicio) {
+        return false; // Ya existe, no crear
       }
-    });
-    
-    if (!existeServicio) {
-      // Generar número de orden único
-      const numeroOrden = `ODT-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+      
+      // Generar número de orden único con timestamp más específico
+      const timestamp = Date.now();
+      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      const numeroOrden = `ODT-${timestamp.toString().slice(-8)}${random}`;
       
       // Crear fecha y hora programada
       const [hora, minuto] = programacion.horaInicio.split(':');
       const fechaProgramada = new Date(fechaActual);
       fechaProgramada.setHours(parseInt(hora), parseInt(minuto), 0, 0);
       
-      await prisma.servicio.create({
+      await tx.servicio.create({
         data: {
           id: numeroOrden,
           clienteId: programacion.clienteId,
@@ -693,6 +708,10 @@ async function generarServiciosParaProgramacion(programacion, fechaHasta) {
         }
       });
       
+      return true; // Servicio creado
+    });
+    
+    if (servicioCreado) {
       serviciosCreados++;
     }
     
