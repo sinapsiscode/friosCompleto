@@ -97,7 +97,7 @@ const ClienteDashboard = () => {
         <div className="flex gap-4 relative z-10 w-full lg:w-auto">
           <button 
             className="bg-white text-primary px-4 lg:px-6 py-2 lg:py-3 rounded-lg font-medium transition-all duration-200 hover:bg-gray-50 flex items-center justify-center gap-2 shadow-sm w-full lg:w-auto"
-            onClick={() => navigate('/cliente/solicitar-servicio')}
+            onClick={() => navigate('/solicitar-servicio')}
           >
             <i className="fas fa-plus-circle"></i>
             <span>Solicitar Orden</span>
@@ -226,7 +226,7 @@ const ClienteDashboard = () => {
               <p className="text-lg mb-6">No hay órdenes programadas</p>
               <button 
                 className="bg-primary text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 hover:bg-primary-dark flex items-center gap-2 mx-auto"
-                onClick={() => navigate('/cliente/solicitar-servicio')}
+                onClick={() => navigate('/solicitar-servicio')}
               >
                 <i className="fas fa-plus"></i>
                 <span>Solicitar una orden de servicio</span>
@@ -249,7 +249,7 @@ const ClienteDashboard = () => {
             <p className="text-gray-400 mb-6">Aún no has creado ninguna orden de servicio</p>
             <button 
               className="bg-primary text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 hover:bg-primary-dark flex items-center gap-2 mx-auto"
-              onClick={() => navigate('/cliente/solicitar-servicio')}
+              onClick={() => navigate('/solicitar-servicio')}
             >
               <i className="fas fa-plus"></i>
               <span>Crear primera orden</span>
@@ -421,7 +421,7 @@ const ClienteDashboard = () => {
             <button
               onClick={() => {
                 setShowCalendarModal(false);
-                navigate('/cliente/solicitar-servicio');
+                navigate('/solicitar-servicio');
               }}
               className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex items-center justify-center gap-2 order-1 sm:order-2"
             >

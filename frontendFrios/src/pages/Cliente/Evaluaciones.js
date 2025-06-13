@@ -198,27 +198,32 @@ const Evaluaciones = () => {
                 <div key={servicio.id} className="border border-gray-200 rounded-lg p-4 hover:border-primary transition-colors hover:shadow-md">
                   <div className="flex flex-col h-full">
                     <div className="flex-1">
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="text-xs font-medium text-gray-500">#{servicio.numeroOrden || servicio.id}</span>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                          servicio.tipoServicio === 'programado' ? 'bg-blue-100 text-blue-700' : 
+                          servicio.tipoServicio === 'Correctivo' ? 'bg-orange-100 text-orange-700' : 
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {servicio.tipoServicio || 'Servicio'}
+                        </span>
+                      </div>
                       <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2">{servicio.descripcion}</h3>
                       <div className="space-y-1.5 text-sm text-gray-600">
                         <div className="flex items-center gap-2">
-                          <i className="fas fa-calendar text-xs"></i>
-                          <span className="truncate">{new Date(servicio.fecha).toLocaleDateString()}</span>
+                          <i className="fas fa-calendar-check text-xs text-green-600"></i>
+                          <span className="truncate">Completado: {new Date(servicio.fechaCompletado || servicio.fechaProgramada).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <i className="fas fa-user-cog text-xs"></i>
-                          <span className="truncate">{tecnico ? `${tecnico.nombre} ${tecnico.apellido}` : 'N/A'}</span>
+                          <i className="fas fa-user-cog text-xs text-blue-600"></i>
+                          <span className="truncate">{tecnico ? `${tecnico.nombre} ${tecnico.apellido}` : 'Sin técnico asignado'}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <i className="fas fa-snowflake text-xs"></i>
-                          <span className="truncate">{equipos.length} equipo{equipos.length !== 1 ? 's' : ''}</span>
-                        </div>
-                      </div>
-                      <div className="mt-2">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                          servicio.tipo === 'preventivo' ? 'bg-info/10 text-info' : 'bg-warning/10 text-warning'
-                        }`}>
-                          {servicio.tipo === 'preventivo' ? 'Preventivo' : 'Correctivo'}
-                        </span>
+                        {servicio.observaciones && (
+                          <div className="flex items-start gap-2">
+                            <i className="fas fa-comment-dots text-xs text-gray-500 mt-0.5"></i>
+                            <span className="text-xs italic line-clamp-2">{servicio.observaciones}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <button
@@ -255,15 +260,25 @@ const Evaluaciones = () => {
                 <div key={servicio.id} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex flex-col h-full">
                     <div className="flex-1">
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="text-xs font-medium text-gray-500">#{servicio.numeroOrden || servicio.id}</span>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                          servicio.tipoServicio === 'programado' ? 'bg-blue-100 text-blue-700' : 
+                          servicio.tipoServicio === 'Correctivo' ? 'bg-orange-100 text-orange-700' : 
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {servicio.tipoServicio || 'Servicio'}
+                        </span>
+                      </div>
                       <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2">{servicio.descripcion}</h3>
                       <div className="space-y-1.5 text-sm text-gray-600 mb-3">
                         <div className="flex items-center gap-2">
-                          <i className="fas fa-calendar text-xs"></i>
-                          <span className="truncate">{new Date(servicio.fecha).toLocaleDateString()}</span>
+                          <i className="fas fa-calendar-check text-xs text-green-600"></i>
+                          <span className="truncate">Completado: {new Date(servicio.fechaCompletado || servicio.fechaProgramada).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <i className="fas fa-user-cog text-xs"></i>
-                          <span className="truncate">{tecnico ? `${tecnico.nombre} ${tecnico.apellido}` : 'N/A'}</span>
+                          <i className="fas fa-user-cog text-xs text-blue-600"></i>
+                          <span className="truncate">{tecnico ? `${tecnico.nombre} ${tecnico.apellido}` : 'Sin técnico asignado'}</span>
                         </div>
                       </div>
                       <div className="bg-gray-50 p-3 rounded-lg mt-auto">
@@ -274,7 +289,7 @@ const Evaluaciones = () => {
                           <p className="text-xs text-gray-600 italic text-center line-clamp-2">"{servicio.evaluacion.comentario}"</p>
                         )}
                         <p className="text-xs text-gray-500 text-center mt-1">
-                          {new Date(servicio.evaluacion.fecha).toLocaleDateString()}
+                          {servicio.evaluacion.fechaEvaluacion ? new Date(servicio.evaluacion.fechaEvaluacion).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
                         </p>
                       </div>
                     </div>
@@ -305,17 +320,34 @@ const Evaluaciones = () => {
         {servicioSeleccionado && (
           <div>
             {/* Info compacta del servicio */}
-            <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm">
-              <p className="text-gray-600 flex items-center gap-3">
-                <span>
-                  <i className="fas fa-calendar mr-1"></i>
-                  {new Date(servicioSeleccionado.fecha).toLocaleDateString()}
-                </span>
-                <span>
-                  <i className="fas fa-user-tie mr-1"></i>
-                  {data.tecnicos.find(t => t.id === servicioSeleccionado.tecnicoId)?.nombre}
-                </span>
-              </p>
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Orden:</span>
+                  <span className="font-medium text-gray-800">#{servicioSeleccionado.numeroOrden || servicioSeleccionado.id}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Servicio:</span>
+                  <span className="font-medium text-gray-800">{servicioSeleccionado.tipoServicio}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Completado:</span>
+                  <span className="font-medium text-gray-800">
+                    {new Date(servicioSeleccionado.fechaCompletado || servicioSeleccionado.fechaProgramada).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Técnico:</span>
+                  <span className="font-medium text-gray-800">
+                    {data.tecnicos.find(t => t.id === servicioSeleccionado.tecnicoId)?.nombre || 'N/A'} {data.tecnicos.find(t => t.id === servicioSeleccionado.tecnicoId)?.apellido || ''}
+                  </span>
+                </div>
+              </div>
+              {servicioSeleccionado.descripcion && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <p className="text-xs text-gray-600 italic">"{servicioSeleccionado.descripcion}"</p>
+                </div>
+              )}
             </div>
 
             {/* Rating simplificado */}

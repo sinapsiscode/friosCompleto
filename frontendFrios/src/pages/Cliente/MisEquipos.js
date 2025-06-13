@@ -305,19 +305,26 @@ const MisEquipos = () => {
             {filteredEquipos.map(equipo => (
               <div key={equipo.id} className="bg-white rounded-lg border border-gray-100 hover:shadow-lg transition-all duration-300 overflow-hidden group">
                 {/* Header con estado e imagen */}
-                <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 p-6 overflow-hidden">
-                  {/* Imagen de fondo si existe */}
-                  {equipo.imagenEquipo && (
+                <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
+                  {/* Imagen del equipo si existe */}
+                  {equipo.imagenEquipo ? (
                     <img 
-                      src={`http://localhost:2001/${equipo.imagenEquipo}`} 
+                      src={`http://localhost:2001/uploads/${equipo.imagenEquipo}`} 
                       alt={`${equipo.marca} ${equipo.modelo}`}
-                      className="absolute inset-0 w-full h-full object-cover opacity-20"
+                      className="absolute inset-0 w-full h-full object-cover"
                       onError={(e) => {
                         e.target.style.display = 'none';
                         console.log('Error cargando imagen:', equipo.imagenEquipo);
                       }}
                     />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <i className="fas fa-snowflake text-6xl text-gray-300"></i>
+                    </div>
                   )}
+                  
+                  {/* Overlay oscuro para mejorar legibilidad */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent"></div>
                   
                   <div className="absolute top-4 right-4 z-10">
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${
@@ -335,10 +342,10 @@ const MisEquipos = () => {
                     </span>
                   </div>
                   
-                  <div className="relative z-10 flex flex-col justify-end h-full">
-                    <div className="text-sm text-gray-600 mb-1">{equipo.tipo.charAt(0).toUpperCase() + equipo.tipo.slice(1)}</div>
-                    <h3 className="text-xl font-medium text-gray-900">{equipo.marca}</h3>
-                    <p className="text-gray-600">{equipo.modelo}</p>
+                  <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
+                    <div className="text-sm text-white/80 mb-1">{equipo.tipo.charAt(0).toUpperCase() + equipo.tipo.slice(1)}</div>
+                    <h3 className="text-xl font-medium text-white">{equipo.marca}</h3>
+                    <p className="text-white/90">{equipo.modelo}</p>
                   </div>
                   
                   {/* Ícono decorativo */}
