@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { DataContext } from '../../context/DataContext';
 import AuthContext from '../../context/AuthContext';
 import { showAlert } from '../../utils/sweetAlert';
+import adminService from '../../services/admin.service';
 
 const ConfigurarPerfil = () => {
   const { data, updateItem, addItem } = useContext(DataContext);
@@ -24,24 +25,42 @@ const ConfigurarPerfil = () => {
   const [touched, setTouched] = useState({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  // Buscar datos del administrador actual
+  // Cargar datos del administrador desde el backend
   useEffect(() => {
-    const adminData = data.administradores?.find(a => a.usuario === user?.username);
-    if (adminData) {
-      setFormData(prev => ({
-        ...prev,
-        nombre: adminData.nombre || '',
-        apellido: adminData.apellido || '',
-        email: adminData.email || '',
-        telefono: adminData.telefono || '',
-        direccion: adminData.direccion || '',
-        distrito: adminData.distrito || '',
-        empresa: adminData.empresa || 'FríoService',
-        cargo: adminData.cargo || 'Administrador'
-      }));
-    }
-  }, [data.administradores, user]);
+    const loadAdminProfile = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        const response = await adminService.getProfile();
+        
+        if (response.success) {
+          const adminData = response.data;
+          setFormData(prev => ({
+            ...prev,
+            nombre: adminData.nombre || '',
+            apellido: adminData.apellido || '',
+            email: adminData.email || '',
+            telefono: adminData.telefono || '',
+            direccion: adminData.direccion || '',
+            distrito: '', // No existe en el modelo backend
+            empresa: 'FríoService',
+            cargo: 'Administrador'
+          }));
+        }
+      } catch (error) {
+        console.error('Error al cargar perfil del administrador:', error);
+        showAlert('Error al cargar el perfil', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAdminProfile();
+  }, [user]);
 
   const validateField = (name, value) => {
     let error = '';
@@ -62,9 +81,6 @@ const ConfigurarPerfil = () => {
         break;
       case 'direccion':
         if (!value.trim()) error = 'La dirección es requerida';
-        break;
-      case 'distrito':
-        if (!value.trim()) error = 'El distrito es requerido';
         break;
       case 'newPassword':
         if (value && value.length < 6) error = 'Mínimo 6 caracteres';
@@ -108,7 +124,7 @@ const ConfigurarPerfil = () => {
     
     // Validate all fields
     const fieldsToValidate = editMode 
-      ? ['nombre', 'apellido', 'email', 'telefono', 'direccion', 'distrito']
+      ? ['nombre', 'apellido', 'email', 'telefono', 'direccion']
       : [];
       
     const newErrors = {};
@@ -132,38 +148,57 @@ const ConfigurarPerfil = () => {
       return;
     }
 
-    // Find or create admin data
-    let adminData = data.administradores?.find(a => a.usuario === user?.username);
-    
-    const updatedData = {
-      id: adminData?.id || 1,
-      usuario: user?.username,
-      nombre: formData.nombre,
-      apellido: formData.apellido,
-      email: formData.email,
-      telefono: formData.telefono,
-      direccion: formData.direccion,
-      distrito: formData.distrito,
-      empresa: formData.empresa || 'FríoService',
-      cargo: formData.cargo || 'Administrador',
-      password: formData.newPassword || adminData?.password || 'admin123'
-    };
+    try {
+      setSaving(true);
+      
+      const updateData = {
+        nombre: formData.nombre,
+        apellido: formData.apellido,
+        email: formData.email,
+        telefono: formData.telefono,
+        direccion: formData.direccion
+      };
 
-    if (adminData) {
-      updateItem('administradores', adminData.id, updatedData);
-    } else {
-      addItem('administradores', updatedData);
+      // Solo incluir nueva contraseña si se proporcionó
+      if (formData.newPassword) {
+        updateData.newPassword = formData.newPassword;
+      }
+
+      const response = await adminService.updateProfile(updateData);
+      
+      if (response.success) {
+        showAlert('Perfil actualizado exitosamente', 'success');
+        setEditMode(false);
+        setFormData(prev => ({
+          ...prev,
+          password: '',
+          newPassword: '',
+          confirmPassword: ''
+        }));
+      } else {
+        showAlert(response.message || 'Error al actualizar el perfil', 'error');
+      }
+    } catch (error) {
+      console.error('Error al actualizar perfil:', error);
+      const errorMessage = error.response?.data?.message || 'Error al actualizar el perfil';
+      showAlert(errorMessage, 'error');
+    } finally {
+      setSaving(false);
     }
-
-    showAlert('Perfil actualizado exitosamente', 'success');
-    setEditMode(false);
-    setFormData(prev => ({
-      ...prev,
-      password: '',
-      newPassword: '',
-      confirmPassword: ''
-    }));
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto p-6 animate-fadeIn">
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden p-8">
+          <div className="flex items-center justify-center">
+            <i className="fas fa-spinner fa-spin text-4xl text-primary mr-4"></i>
+            <span className="text-lg text-gray-600">Cargando perfil...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6 animate-fadeIn">
@@ -442,10 +477,20 @@ const ConfigurarPerfil = () => {
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex items-center gap-2"
+                disabled={saving}
+                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <i className="fas fa-save"></i>
-                Guardar Cambios
+                {saving ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin"></i>
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-save"></i>
+                    Guardar Cambios
+                  </>
+                )}
               </button>
             </div>
           )}
