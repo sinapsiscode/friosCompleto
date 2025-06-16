@@ -600,11 +600,11 @@ const Servicios = () => {
                   </td>
                   <td className="py-4 px-6 text-gray-800 text-base">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      servicio.prioridad === 'alta' || servicio.prioridad === 'ALTA' ? 'bg-danger/10 text-danger' :
+                      servicio.prioridad === 'alta' || servicio.prioridad === 'ALTA' || servicio.prioridad === 'URGENTE' ? 'bg-danger/10 text-danger' :
                       servicio.prioridad === 'media' || servicio.prioridad === 'MEDIA' ? 'bg-warning/10 text-warning' :
                       'bg-success/10 text-success'
                     }`}>
-                      {(servicio.prioridad === 'alta' || servicio.prioridad === 'ALTA') && <i className="fas fa-exclamation-circle text-xs mr-1"></i>}
+                      {(servicio.prioridad === 'alta' || servicio.prioridad === 'ALTA' || servicio.prioridad === 'URGENTE') && <i className="fas fa-exclamation-circle text-xs mr-1"></i>}
                       {(servicio.prioridad === 'media' || servicio.prioridad === 'MEDIA') && <i className="fas fa-exclamation-triangle text-xs mr-1"></i>}
                       {(servicio.prioridad === 'baja' || servicio.prioridad === 'BAJA') && <i className="fas fa-info-circle text-xs mr-1"></i>}
                       {servicio.prioridad?.toUpperCase() || 'BAJA'}

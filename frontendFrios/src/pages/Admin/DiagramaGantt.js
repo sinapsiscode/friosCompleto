@@ -536,8 +536,9 @@ const DiagramaGantt = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            servicio.prioridad === 'ALTA' ? 'bg-red-100 text-red-800' :
+                            servicio.prioridad === 'ALTA' || servicio.prioridad === 'URGENTE' ? 'bg-red-100 text-red-800' :
                             servicio.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-800' :
+                            servicio.prioridad === 'BAJA' ? 'bg-green-100 text-green-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
                             {servicio.prioridad}
