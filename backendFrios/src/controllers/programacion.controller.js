@@ -214,8 +214,11 @@ const programacionController = {
         }
       }
       
-      // Calcular próxima ejecución
-      const proximaEjecucion = calcularProximaEjecucion(frecuencia, fechaInicio, intervaloDias, diasSemana, diaMes);
+      // Crear fecha de inicio sin problemas de zona horaria
+      const fechaInicioLocal = new Date(fechaInicio + 'T00:00:00');
+      
+      // Para la primera programación, la próxima ejecución ES la fecha de inicio
+      const proximaEjecucion = fechaInicioLocal;
       
       const programacion = await prisma.programacion.create({
         data: {
@@ -230,8 +233,8 @@ const programacionController = {
           horaFin,
           diasSemana: diasSemana ? JSON.parse(diasSemana) : null,
           diaMes,
-          fechaInicio: new Date(fechaInicio),
-          fechaFin: fechaFin ? new Date(fechaFin) : null,
+          fechaInicio: fechaInicioLocal,
+          fechaFin: fechaFin ? new Date(fechaFin + 'T23:59:59') : null,
           proximaEjecucion,
           prioridad,
           observaciones,
@@ -587,11 +590,12 @@ const programacionController = {
 
 // Función auxiliar para calcular próxima ejecución
 function calcularProximaEjecucion(frecuencia, fechaInicio, intervaloDias = null, diasSemana = null, diaMes = null, ultimaEjecucion = null) {
+  // Crear fechas locales sin problemas de zona horaria
   const ahora = new Date();
   const inicio = new Date(fechaInicio);
   
-  // Usar la última ejecución como punto de partida si existe, sino usar fechaInicio
-  let proxima = ultimaEjecucion ? new Date(ultimaEjecucion) : new Date(Math.max(ahora.getTime(), inicio.getTime()));
+  // Si hay última ejecución, usar esa como base; sino usar la fecha de inicio tal como la seleccionó el usuario
+  let proxima = ultimaEjecucion ? new Date(ultimaEjecucion) : new Date(inicio);
   
   switch (frecuencia) {
     case 'DIARIO':
@@ -647,7 +651,8 @@ function calcularProximaEjecucion(frecuencia, fechaInicio, intervaloDias = null,
 // Función auxiliar para generar servicios de una programación
 async function generarServiciosParaProgramacion(programacion, fechaHasta) {
   let serviciosCreados = 0;
-  let fechaActual = new Date(programacion.proximaEjecucion || programacion.fechaInicio);
+  // Siempre empezar desde fechaInicio para respetar la selección del usuario
+  let fechaActual = new Date(programacion.fechaInicio);
   
   // Usar mutex para evitar condiciones de carrera
   const lockKey = `programacion_${programacion.id}`;
