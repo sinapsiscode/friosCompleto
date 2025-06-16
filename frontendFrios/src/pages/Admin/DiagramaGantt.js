@@ -413,16 +413,6 @@ const DiagramaGantt = () => {
                                     : `${cliente.nombre} ${cliente.apellido}`
                                   : "Sin cliente"}
                               </p>
-                              {servicio.descripcion && (
-                                <p className="text-xs text-gray-500 truncate mt-0.5">
-                                  {servicio.descripcion
-                                    .replace(
-                                      /Mi Calificación \d+\.\d+\/\d+\.\d+ ?/g,
-                                      ""
-                                    )
-                                    .trim()}
-                                </p>
-                              )}
                             </div>
                           </div>
 
@@ -711,336 +701,341 @@ const DiagramaGantt = () => {
         </div>
       </div>
 
-      {/* Modal de detalles del servicio */}
+      {/* Modal de detalles del servicio - DISEÑO MINIMALISTA */}
       {modalVisible && selectedServicio && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Detalle de la Orden de Servicio
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {selectedServicio.tipoServicio === "programado"
-                      ? "Mantenimiento Programado"
-                      : "Servicio Correctivo"}
-                  </p>
-                </div>
-                <button
-                  onClick={closeModal}
-                  className="text-gray-400 hover:text-gray-500 transition-colors"
-                >
-                  <i className="fas fa-times text-xl"></i>
-                </button>
-              </div>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            {/* Header simplificado */}
+            <div className="relative bg-gradient-to-r from-gray-50 to-white p-6 border-b">
+              <button
+                onClick={closeModal}
+                className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <i className="fas fa-times text-lg"></i>
+              </button>
+
+              <h2 className="text-xl font-semibold text-gray-900">
+                Detalle de la Orden
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                {selectedServicio.tipoServicio === "programado"
+                  ? "Mantenimiento Programado"
+                  : selectedServicio.tipoServicio === "correctivo"
+                  ? "Servicio Correctivo"
+                  : selectedServicio.tipoServicio === "preventivo"
+                  ? "Servicio Preventivo"
+                  : selectedServicio.tipoServicio}
+              </p>
             </div>
 
-            <div className="p-6 space-y-6">
-              {/* Cliente */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">Cliente</h3>
-                {(() => {
-                  const cliente = data.clientes.find(
-                    (c) => c.id === selectedServicio.clienteId
-                  );
-                  return cliente ? (
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-semibold">
-                        {cliente.tipo === "empresa"
-                          ? cliente.razonSocial.charAt(0).toUpperCase()
-                          : `${cliente.nombre.charAt(
-                              0
-                            )}${cliente.apellido.charAt(0)}`.toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-medium">
+            <div className="overflow-y-auto max-h-[calc(90vh-180px)]">
+              <div className="p-6 space-y-6">
+                {/* Cliente - Diseño minimalista */}
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                    Cliente
+                  </h3>
+                  {(() => {
+                    const cliente = data.clientes.find(
+                      (c) => c.id === selectedServicio.clienteId
+                    );
+                    return cliente ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 text-sm font-medium">
                           {cliente.tipo === "empresa"
-                            ? cliente.razonSocial
-                            : `${cliente.nombre} ${cliente.apellido}`}
-                        </p>
-                        <p className="text-sm text-gray-500">{cliente.email}</p>
+                            ? cliente.razonSocial.charAt(0).toUpperCase()
+                            : `${cliente.nombre.charAt(
+                                0
+                              )}${cliente.apellido.charAt(0)}`.toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {cliente.tipo === "empresa"
+                              ? cliente.razonSocial
+                              : `${cliente.nombre} ${cliente.apellido}`}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {cliente.email}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">Cliente no encontrado</p>
-                  );
-                })()}
-              </div>
-
-              {/* Estado y tipo */}
-              <div className="flex gap-4">
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    selectedServicio.estado === "pendiente"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : selectedServicio.estado === "proceso"
-                      ? "bg-blue-100 text-blue-800"
-                      : selectedServicio.estado === "completado"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  <i
-                    className={`fas ${
-                      selectedServicio.estado === "completado"
-                        ? "fa-check-circle"
-                        : selectedServicio.estado === "proceso"
-                        ? "fa-spinner"
-                        : selectedServicio.estado === "pendiente"
-                        ? "fa-clock"
-                        : "fa-times-circle"
-                    } mr-2`}
-                  ></i>
-                  {selectedServicio.estado.charAt(0).toUpperCase() +
-                    selectedServicio.estado.slice(1)}
-                </span>
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    selectedServicio.tipoServicio === "programado"
-                      ? "bg-blue-100 text-blue-800"
-                      : selectedServicio.tipoServicio === "correctivo"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  {selectedServicio.tipoServicio.charAt(0).toUpperCase() +
-                    selectedServicio.tipoServicio.slice(1)}
-                </span>
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    selectedServicio.prioridad === "alta"
-                      ? "bg-red-100 text-red-800"
-                      : selectedServicio.prioridad === "media"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  Prioridad {selectedServicio.prioridad}
-                </span>
-              </div>
-
-              {/* Información general */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">
-                  Información general
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Fecha programada</p>
-                    <p className="font-medium">
-                      {new Date(selectedServicio.fecha).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Hora</p>
-                    <p className="font-medium">
-                      {selectedServicio.hora || "09:00"}
-                    </p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <p className="text-sm text-gray-500">Descripción</p>
-                    <p className="font-medium">
-                      {selectedServicio.descripcion}
-                    </p>
-                  </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Cliente no encontrado
+                      </p>
+                    );
+                  })()}
                 </div>
-              </div>
 
-              {/* Técnico asignado */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">
-                  Técnico asignado
-                </h3>
-                {(() => {
-                  const tecnico = data.tecnicos.find(
-                    (t) => t.id === selectedServicio.tecnicoId
-                  );
-                  return tecnico ? (
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-semibold">
-                        {tecnico.nombre.charAt(0)}
-                        {tecnico.apellido.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-medium">
-                          {tecnico.nombre} {tecnico.apellido}
-                        </p>
-                        <p className="text-sm text-gray-500">{tecnico.email}</p>
-                      </div>
+                {/* Estados - Más sutiles */}
+                <div className="flex gap-2">
+                  <span
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full ${
+                      selectedServicio.estado === "PENDIENTE"
+                        ? "bg-amber-50 text-amber-700 border border-amber-200"
+                        : selectedServicio.estado === "PROCESO"
+                        ? "bg-blue-50 text-blue-700 border border-blue-200"
+                        : selectedServicio.estado === "COMPLETADO"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : "bg-red-50 text-red-700 border border-red-200"
+                    }`}
+                  >
+                    {selectedServicio.estado}
+                  </span>
+                  <span
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full ${
+                      selectedServicio.tipoServicio === "programado"
+                        ? "bg-slate-50 text-slate-700 border border-slate-200"
+                        : selectedServicio.tipoServicio === "correctivo"
+                        ? "bg-orange-50 text-orange-700 border border-orange-200"
+                        : "bg-teal-50 text-teal-700 border border-teal-200"
+                    }`}
+                  >
+                    {selectedServicio.tipoServicio.charAt(0).toUpperCase() +
+                      selectedServicio.tipoServicio.slice(1)}
+                  </span>
+                  {selectedServicio.prioridad && (
+                    <span
+                      className={`px-3 py-1.5 text-xs font-medium rounded-full ${
+                        selectedServicio.prioridad === "ALTA" ||
+                        selectedServicio.prioridad === "URGENTE"
+                          ? "bg-red-50 text-red-700 border border-red-200"
+                          : selectedServicio.prioridad === "MEDIA"
+                          ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                          : "bg-gray-50 text-gray-700 border border-gray-200"
+                      }`}
+                    >
+                      Prioridad {selectedServicio.prioridad}
+                    </span>
+                  )}
+                </div>
+
+                {/* Información general - Grid minimalista */}
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                    Información general
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Fecha programada
+                      </p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {selectedServicio.fechaProgramada ||
+                        selectedServicio.fechaSolicitud
+                          ? new Date(
+                              selectedServicio.fechaProgramada ||
+                                selectedServicio.fechaSolicitud
+                            ).toLocaleDateString("es", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            })
+                          : "Sin fecha"}
+                      </p>
                     </div>
-                  ) : (
-                    <p className="text-gray-500">No hay técnico asignado</p>
-                  );
-                })()}
-              </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Hora</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {selectedServicio.hora || "09:00"}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedServicio.descripcion && (
+                    <div className="mt-4">
+                      <p className="text-xs text-gray-500 mb-1">Descripción</p>
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {selectedServicio.descripcion
+                          .replace(/Mi Calificación \d+\.\d+\/\d+\.\d+ ?/g, "")
+                          .trim()}
+                      </p>
+                    </div>
+                  )}
+                </div>
 
-              {/* Equipos */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">Equipos</h3>
-                {(() => {
-                  const equipos = selectedServicio.equipoId
-                    ? data.equipos.filter(
-                        (e) => e.id === selectedServicio.equipoId
-                      )
-                    : selectedServicio.detalles &&
-                      typeof selectedServicio.detalles === "string"
-                    ? JSON.parse(selectedServicio.detalles).equiposSeleccionados
+                {/* Técnico asignado - Simplificado */}
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                    Técnico asignado
+                  </h3>
+                  {(() => {
+                    const tecnico = data.tecnicos.find(
+                      (t) => t.id === selectedServicio.tecnicoId
+                    );
+                    return tecnico ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 text-sm font-medium">
+                          {tecnico.nombre.charAt(0)}
+                          {tecnico.apellido.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {tecnico.nombre} {tecnico.apellido}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {tecnico.email}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        No hay técnico asignado
+                      </p>
+                    );
+                  })()}
+                </div>
+
+                {/* Equipos - Diseño de tarjetas minimalistas */}
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                    Equipos
+                  </h3>
+                  {(() => {
+                    const equipos = selectedServicio.equipoId
+                      ? data.equipos.filter(
+                          (e) => e.id === selectedServicio.equipoId
+                        )
+                      : selectedServicio.detalles &&
+                        typeof selectedServicio.detalles === "string"
+                      ? JSON.parse(selectedServicio.detalles)
+                          .equiposSeleccionados
+                        ? data.equipos.filter((e) =>
+                            JSON.parse(
+                              selectedServicio.detalles
+                            ).equiposSeleccionados.includes(e.id)
+                          )
+                        : []
+                      : selectedServicio.detalles &&
+                        selectedServicio.detalles.equiposSeleccionados
                       ? data.equipos.filter((e) =>
-                          JSON.parse(
-                            selectedServicio.detalles
-                          ).equiposSeleccionados.includes(e.id)
+                          selectedServicio.detalles.equiposSeleccionados.includes(
+                            e.id
+                          )
                         )
-                      : []
-                    : selectedServicio.detalles &&
-                      selectedServicio.detalles.equiposSeleccionados
-                    ? data.equipos.filter((e) =>
-                        selectedServicio.detalles.equiposSeleccionados.includes(
-                          e.id
-                        )
-                      )
-                    : [];
-                  return equipos.length > 0 ? (
-                    <div className="space-y-4">
-                      {equipos.map((equipo) => (
-                        <div
-                          key={equipo.id}
-                          className="bg-white rounded-lg p-4 border border-gray-200"
-                        >
-                          <div className="flex items-start gap-4">
-                            {equipo.imagenEquipo ? (
-                              <img
-                                src={`/uploads/${equipo.imagenEquipo}`}
-                                alt={equipo.nombre}
-                                className="w-16 h-16 rounded-lg object-cover border border-gray-200"
-                                onError={(e) => {
-                                  e.target.style.display = "none";
-                                  e.target.nextSibling.style.display = "flex";
-                                }}
-                              />
-                            ) : null}
-                            <div
-                              className={`w-16 h-16 rounded-lg flex items-center justify-center text-white font-semibold bg-gradient-to-br from-blue-500 to-blue-600 ${
-                                equipo.imagenEquipo ? "hidden" : ""
-                              }`}
-                            >
-                              {equipo.tipo?.charAt(0).toUpperCase() || "E"}
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-medium text-gray-900">
-                                {equipo.nombre ||
-                                  `${equipo.tipo} ${equipo.marca}`}
-                              </h4>
-                              <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                                <div>
-                                  <span className="text-gray-500">Marca:</span>
-                                  <span className="ml-1 font-medium">
-                                    {equipo.marca}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-500">Modelo:</span>
-                                  <span className="ml-1 font-medium">
-                                    {equipo.modelo}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-500">
-                                    Capacidad:
-                                  </span>
-                                  <span className="ml-1 font-medium">
-                                    {equipo.capacidad} L
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-500">Estado:</span>
-                                  <span
-                                    className={`ml-1 font-medium ${
-                                      equipo.estadoOperativo === "operativo"
-                                        ? "text-green-600"
-                                        : equipo.estadoOperativo ===
-                                          "mantenimiento"
-                                        ? "text-yellow-600"
-                                        : "text-red-600"
-                                    }`}
-                                  >
-                                    {equipo.estadoOperativo?.replace(
-                                      "_",
-                                      " "
-                                    ) || "Sin estado"}
-                                  </span>
-                                </div>
-                                <div className="col-span-2">
-                                  <span className="text-gray-500">
-                                    N° Serie:
-                                  </span>
-                                  <span className="ml-1 font-medium font-mono">
-                                    {equipo.numeroSerie}
-                                  </span>
-                                </div>
-                                <div className="col-span-2">
-                                  <span className="text-gray-500">
-                                    Ubicación:
-                                  </span>
-                                  <span className="ml-1 font-medium">
-                                    {equipo.ubicacion || "No especificada"}
-                                  </span>
-                                </div>
-                                {equipo.fechaCompra && (
-                                  <div>
+                      : [];
+
+                    return equipos.length > 0 ? (
+                      <div className="space-y-3">
+                        {equipos.map((equipo) => (
+                          <div
+                            key={equipo.id}
+                            className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex items-start gap-4">
+                              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 font-medium flex-shrink-0">
+                                {equipo.tipo?.charAt(0).toUpperCase() || "E"}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-medium text-gray-900 mb-2">
+                                  {equipo.nombre ||
+                                    `${equipo.tipo} ${equipo.marca}`}
+                                </h4>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                                  <div className="flex justify-between">
                                     <span className="text-gray-500">
-                                      F. Compra:
+                                      Marca:
                                     </span>
-                                    <span className="ml-1 font-medium">
-                                      {new Date(
-                                        equipo.fechaCompra
-                                      ).toLocaleDateString()}
+                                    <span className="text-gray-700 font-medium">
+                                      {equipo.marca}
                                     </span>
                                   </div>
-                                )}
-                                {equipo.fechaInstalacion && (
-                                  <div>
+                                  <div className="flex justify-between">
                                     <span className="text-gray-500">
-                                      F. Instalación:
+                                      Modelo:
                                     </span>
-                                    <span className="ml-1 font-medium">
-                                      {new Date(
-                                        equipo.fechaInstalacion
-                                      ).toLocaleDateString()}
+                                    <span className="text-gray-700 font-medium">
+                                      {equipo.modelo}
                                     </span>
                                   </div>
-                                )}
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-500">
+                                      Capacidad:
+                                    </span>
+                                    <span className="text-gray-700 font-medium">
+                                      {equipo.capacidad} L
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-500">
+                                      Estado:
+                                    </span>
+                                    <span
+                                      className={`font-medium ${
+                                        equipo.estadoOperativo === "operativo"
+                                          ? "text-green-600"
+                                          : equipo.estadoOperativo ===
+                                            "mantenimiento"
+                                          ? "text-yellow-600"
+                                          : "text-red-600"
+                                      }`}
+                                    >
+                                      {equipo.estadoOperativo?.replace(
+                                        "_",
+                                        " "
+                                      ) || "Sin estado"}
+                                    </span>
+                                  </div>
+                                  <div className="col-span-2 flex justify-between">
+                                    <span className="text-gray-500">
+                                      N° Serie:
+                                    </span>
+                                    <span className="text-gray-700 font-mono text-xs">
+                                      {equipo.numeroSerie}
+                                    </span>
+                                  </div>
+                                  {equipo.ubicacion && (
+                                    <div className="col-span-2 flex justify-between">
+                                      <span className="text-gray-500">
+                                        Ubicación:
+                                      </span>
+                                      <span className="text-gray-700 font-medium">
+                                        {equipo.ubicacion}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">
-                      No hay equipos especificados
-                    </p>
-                  );
-                })()}
-              </div>
-
-              {/* Observaciones */}
-              {selectedServicio.observaciones && (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3">
-                    Observaciones
-                  </h3>
-                  <p className="text-gray-700">
-                    {selectedServicio.observaciones}
-                  </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        No hay equipos especificados
+                      </p>
+                    );
+                  })()}
                 </div>
-              )}
+
+                {/* Observaciones - Si existen */}
+                {selectedServicio.observaciones && (
+                  <div>
+                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                      Observaciones
+                    </h3>
+                    <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-lg p-3">
+                      {selectedServicio.observaciones}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200">
+            {/* Footer minimalista */}
+            <div className="border-t p-4">
               <button
                 onClick={closeModal}
-                className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-medium"
+                className="w-full px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium"
+                style={{
+                  backgroundColor: "#2073ad",
+                  ":hover": { backgroundColor: "#1a5f8f" },
+                }}
+                onMouseEnter={(e) =>
+                  (e.target.style.backgroundColor = "#1a5f8f")
+                }
+                onMouseLeave={(e) =>
+                  (e.target.style.backgroundColor = "#2073ad")
+                }
               >
                 Cerrar
               </button>

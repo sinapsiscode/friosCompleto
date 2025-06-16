@@ -3,12 +3,27 @@ const Joi = require('joi');
 // Middleware para validar datos de entrada
 const validate = (schema, property = 'body') => {
   return (req, res, next) => {
-    const { error, value } = schema.validate(req[property], {
+    // Log para debug
+    console.log('🔍 === VALIDACIÓN MIDDLEWARE ===');
+    console.log('📝 Datos a validar:', JSON.stringify(req[property], null, 2));
+    
+    // Procesar valores null/undefined en FormData
+    const dataToValidate = { ...req[property] };
+    Object.keys(dataToValidate).forEach(key => {
+      if (dataToValidate[key] === 'null' || dataToValidate[key] === 'undefined') {
+        dataToValidate[key] = null;
+      }
+    });
+    
+    console.log('📝 Datos procesados para validar:', JSON.stringify(dataToValidate, null, 2));
+    
+    const { error, value } = schema.validate(dataToValidate, {
       abortEarly: false,
       stripUnknown: true
     });
 
     if (error) {
+      console.log('❌ Errores de validación:', error.details);
       return res.status(400).json({
         success: false,
         message: 'Datos de entrada inválidos',
@@ -19,6 +34,7 @@ const validate = (schema, property = 'body') => {
       });
     }
 
+    console.log('✅ Validación exitosa');
     req[property] = value;
     next();
   };
@@ -190,19 +206,19 @@ const schemas = {
   }),
 
   updateTecnico: Joi.object({
-    nombre: Joi.string().min(2).max(50).optional(),
-    apellido: Joi.string().min(2).max(50).optional(),
-    email: Joi.string().email().optional(),
-    telefono: Joi.string().pattern(/^[+]?[0-9\s\-()]{9,20}$/).optional().allow(''),
-    direccion: Joi.string().max(200).optional().allow(''),
-    distrito: Joi.string().max(100).optional().allow(''),
-    dni: Joi.string().pattern(/^[0-9]{8}$/).optional().allow(''),
-    especialidad: Joi.string().valid('general', 'refrigeracion', 'aire_acondicionado', 'sistemas_comerciales', 'sistemas_industriales').optional(),
-    experiencia: Joi.number().integer().min(0).max(50).optional(),
-    certificaciones: Joi.string().max(500).optional().allow(''),
-    disponibilidad: Joi.string().valid('DISPONIBLE', 'NO_DISPONIBLE', 'OCUPADO').optional(),
-    isActive: Joi.boolean().optional(),
-    profileImage: Joi.string().optional() // Para permitir el campo de imagen
+    nombre: Joi.string().min(2).max(50).optional().allow('', null),
+    apellido: Joi.string().min(2).max(50).optional().allow('', null),
+    email: Joi.string().email().optional().allow('', null),
+    telefono: Joi.string().pattern(/^[+]?[0-9\s\-()]{9,20}$/).optional().allow('', null),
+    direccion: Joi.string().max(200).optional().allow('', null),
+    distrito: Joi.string().max(100).optional().allow('', null),
+    dni: Joi.string().pattern(/^[0-9]{8}$/).optional().allow('', null),
+    especialidad: Joi.string().valid('general', 'refrigeracion', 'aire_acondicionado', 'sistemas_comerciales', 'sistemas_industriales').optional().allow('', null),
+    experiencia: Joi.number().integer().min(0).max(50).optional().allow(null),
+    certificaciones: Joi.string().max(500).optional().allow('', null),
+    disponibilidad: Joi.string().valid('DISPONIBLE', 'NO_DISPONIBLE', 'OCUPADO').optional().allow('', null),
+    isActive: Joi.alternatives().try(Joi.boolean(), Joi.string().valid('true', 'false')).optional(),
+    profileImage: Joi.string().optional().allow('', null) // Para permitir el campo de imagen
   }),
 
   tecnico: Joi.object({

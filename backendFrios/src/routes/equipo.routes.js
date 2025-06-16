@@ -23,7 +23,7 @@ router.get('/:id',
 
 // POST /api/equipos - Crear nuevo equipo
 router.post('/',
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'CLIENTE']),
   uploadEquipoImagen,
   handleUploadError,
   equipoController.create
@@ -31,7 +31,7 @@ router.post('/',
 
 // PUT /api/equipos/:id - Actualizar equipo
 router.put('/:id',
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'CLIENTE']),
   uploadEquipoImagen,
   handleUploadError,
   equipoController.update

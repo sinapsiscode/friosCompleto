@@ -140,6 +140,7 @@ const equipoController = {
       } = req.body;
 
       console.log('🔍 Verificando cliente...');
+      console.log('👤 Usuario autenticado:', req.user);
       
       // Verificar que el cliente existe
       const cliente = await prisma.cliente.findUnique({
@@ -152,6 +153,23 @@ const equipoController = {
           success: false,
           message: 'Cliente no encontrado'
         });
+      }
+
+      // Si el usuario es CLIENTE, solo puede crear equipos para sí mismo
+      if (req.user.role === 'CLIENTE') {
+        console.log('🔐 Verificando que el cliente crea equipo para sí mismo...');
+        console.log('👤 Usuario ID (req.user.id):', req.user.id);
+        console.log('👤 Usuario ID (req.user.userId):', req.user.userId);
+        console.log('🏢 Cliente userId:', cliente.userId);
+        
+        const userIdToCompare = req.user.userId || req.user.id;
+        if (cliente.userId !== userIdToCompare) {
+          console.log('❌ Cliente intenta crear equipo para otro cliente');
+          return res.status(403).json({
+            success: false,
+            message: 'No tienes permisos para crear equipos para otros clientes'
+          });
+        }
       }
 
       // Verificar si ya existe un equipo con el mismo número de serie
@@ -245,7 +263,10 @@ const equipoController = {
       } = req.body;
 
       const equipoExistente = await prisma.equipo.findUnique({
-        where: { id: parseInt(id) }
+        where: { id: parseInt(id) },
+        include: {
+          cliente: true
+        }
       });
 
       if (!equipoExistente) {
@@ -253,6 +274,23 @@ const equipoController = {
           success: false,
           message: 'Equipo no encontrado'
         });
+      }
+
+      // Si el usuario es CLIENTE, solo puede actualizar sus propios equipos
+      if (req.user.role === 'CLIENTE') {
+        console.log('🔐 Verificando que el cliente actualiza su propio equipo...');
+        console.log('👤 Usuario ID (req.user.id):', req.user.id);
+        console.log('👤 Usuario ID (req.user.userId):', req.user.userId);
+        console.log('🏢 Cliente del equipo userId:', equipoExistente.cliente.userId);
+        
+        const userIdToCompare = req.user.userId || req.user.id;
+        if (equipoExistente.cliente.userId !== userIdToCompare) {
+          console.log('❌ Cliente intenta actualizar equipo de otro cliente');
+          return res.status(403).json({
+            success: false,
+            message: 'No tienes permisos para actualizar equipos de otros clientes'
+          });
+        }
       }
 
       // Verificar número de serie único (si cambió)
