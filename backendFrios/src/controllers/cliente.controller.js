@@ -332,7 +332,9 @@ const clienteController = {
         apellido, 
         email, 
         telefono, 
-        direccion, 
+        direccion,
+        ciudad,
+        distrito, 
         tipo, 
         razonSocial,
         ruc,
@@ -353,22 +355,71 @@ const clienteController = {
         });
       }
 
+      console.log('🔍 Cliente actual encontrado:', cliente.nombre, cliente.apellido);
+      console.log('🔍 Datos actuales en BD:', {
+        distrito: cliente.distrito,
+        ciudad: cliente.ciudad,
+        telefono: cliente.telefono
+      });
+      console.log('🔍 Datos recibidos del frontend:', {
+        distrito: distrito,
+        ciudad: ciudad,
+        telefono: telefono
+      });
+
       // Actualizar cliente y usuario en transacción
       const result = await prisma.$transaction(async (tx) => {
-        // Actualizar cliente
-        const updateData = {
-          nombre,
-          apellido,
-          email,
-          telefono: telefono || null,
-          direccion: direccion || null,
-          tipo: tipo || 'persona',
-          razonSocial: razonSocial || null,
-          ruc: ruc || null,
-          dni: dni || null,
-          sector: sector || null,
-          isActive
+        // Comparar datos actuales con los nuevos para detectar cambios
+        const updateData = {};
+        console.log('🔄 Iniciando comparación de campos...');
+        
+        // Función helper para comparar y agregar campos modificados
+        const addIfChanged = (field, newValue, currentValue, transform = (v) => v) => {
+          console.log(`🔍 Evaluando campo: ${field}`, {
+            newValue: newValue,
+            currentValue: currentValue,
+            isUndefined: newValue === undefined,
+            isNull: newValue === null
+          });
+          
+          // Solo procesar si el nuevo valor no es undefined/null
+          if (newValue === undefined || newValue === null) {
+            console.log(`⚠️ Campo ${field} ignorado: valor undefined/null`);
+            return; // No actualizar si no se envió el campo
+          }
+          
+          const normalizedNew = transform(newValue);
+          const normalizedCurrent = transform(currentValue);
+          
+          console.log(`🔍 Comparando ${field}:`, {
+            normalizedNew: normalizedNew,
+            normalizedCurrent: normalizedCurrent,
+            sonIguales: normalizedNew === normalizedCurrent
+          });
+          
+          // Solo actualizar si realmente son diferentes
+          if (normalizedNew !== normalizedCurrent) {
+            updateData[field] = normalizedNew;
+            console.log(`🔄 Campo modificado: ${field} = "${normalizedCurrent}" -> "${normalizedNew}"`);
+          } else {
+            console.log(`✅ Campo ${field} sin cambios`);
+          }
         };
+
+        // Comparar todos los campos
+        addIfChanged('nombre', nombre, cliente.nombre, v => v?.trim());
+        addIfChanged('apellido', apellido, cliente.apellido, v => v?.trim());
+        addIfChanged('email', email, cliente.email, v => v?.trim());
+        addIfChanged('telefono', telefono, cliente.telefono, v => v?.trim());
+        addIfChanged('direccion', direccion, cliente.direccion, v => v?.trim());
+        addIfChanged('ciudad', ciudad, cliente.ciudad, v => v?.trim());
+        addIfChanged('distrito', distrito, cliente.distrito, v => v?.trim());
+        addIfChanged('tipo', tipo, cliente.tipo, v => v?.trim());
+        addIfChanged('razonSocial', razonSocial, cliente.razonSocial, v => v?.trim());
+        addIfChanged('ruc', ruc, cliente.ruc, v => v?.trim());
+        addIfChanged('dni', dni, cliente.dni, v => v?.trim());
+        addIfChanged('sector', sector, cliente.sector, v => v?.trim());
+        addIfChanged('isActive', isActive, cliente.isActive);
         
         // Solo actualizar profileImage si se subió un nuevo archivo
         if (req.file) {
@@ -382,20 +433,59 @@ const clienteController = {
           console.log('📷 Actualizando profileImage a:', updateData.profileImage);
         }
         
+        console.log('📝 Campos finales a actualizar:', updateData);
+        console.log('📊 Total de campos a actualizar:', Object.keys(updateData).length);
+        
+        // Si no hay cambios, no hacer UPDATE
+        if (Object.keys(updateData).length === 0) {
+          console.log('⚠️ No hay cambios detectados, omitiendo UPDATE');
+          // Obtener el cliente actual sin modificar
+          const clienteSinCambios = await tx.cliente.findUnique({
+            where: { id: parseInt(id) },
+            include: {
+              usuario: {
+                select: { id: true, username: true, email: true, isActive: true }
+              }
+            }
+          });
+          return clienteSinCambios;
+        }
+        
+        // Actualizar cliente solo con los campos que tienen datos
         const clienteActualizado = await tx.cliente.update({
           where: { id: parseInt(id) },
           data: updateData
         });
 
-        // Actualizar email en usuario si cambió
-        if (email !== cliente.usuario.email) {
+        // Actualizar email en usuario si cambió y no está vacío
+        if (email && email.trim() && email !== cliente.usuario.email) {
+          console.log('📧 Actualizando email en usuario');
           await tx.usuario.update({
             where: { id: cliente.userId },
-            data: { email }
+            data: { email: email.trim() }
           });
         }
 
-        return clienteActualizado;
+        // Actualizar estado del usuario si cambió
+        if (isActive !== undefined && isActive !== cliente.usuario.isActive) {
+          console.log('🔄 Actualizando estado de usuario a:', isActive);
+          await tx.usuario.update({
+            where: { id: cliente.userId },
+            data: { isActive }
+          });
+        }
+
+        // Obtener el cliente completo actualizado con todas las relaciones
+        const clienteCompleto = await tx.cliente.findUnique({
+          where: { id: parseInt(id) },
+          include: {
+            usuario: {
+              select: { id: true, username: true, email: true, isActive: true }
+            }
+          }
+        });
+
+        return clienteCompleto;
       });
 
       console.log('✅ Cliente actualizado exitosamente');

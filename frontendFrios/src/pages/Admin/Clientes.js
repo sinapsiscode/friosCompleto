@@ -44,8 +44,8 @@ const Clientes = () => {
 
   const filteredClientes = clientes.filter(cliente => {
     const nombre = cliente.tipo === 'empresa'
-      ? cliente.razonSocial
-      : `${cliente.nombre} ${cliente.apellido}`;
+      ? cliente.razonSocial || 'Sin razón social'
+      : `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim() || 'Sin nombre';
 
     const matchesSearch =
       nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -162,14 +162,18 @@ const Clientes = () => {
                     <img 
                       src={`${process.env.REACT_APP_API_URL || 'http://localhost:2001'}/uploads/${cliente.profileImage}`} 
                       alt={nombre} 
-                      className="w-15 h-15 rounded-2xl object-cover border-4 border-gray-200 transition-all duration-300 flex-shrink-0 relative before:content-[''] before:absolute before:-top-0.5 before:-left-0.5 before:-right-0.5 before:-bottom-0.5 before:rounded-2xl before:bg-gradient-to-r before:from-transparent before:via-primary/20 before:to-transparent before:-z-[1] before:opacity-0 before:transition-all before:duration-300 group-hover:before:opacity-100"
+                      className="rounded-2xl object-cover object-center border-4 border-gray-200 transition-all duration-300 flex-shrink-0 relative before:content-[''] before:absolute before:-top-0.5 before:-left-0.5 before:-right-0.5 before:-bottom-0.5 before:rounded-2xl before:bg-gradient-to-r before:from-transparent before:via-primary/20 before:to-transparent before:-z-[1] before:opacity-0 before:transition-all before:duration-300 group-hover:before:opacity-100"
+                      style={{ width: '82px', height: '76px' }}
                       onError={(e) => {
                         console.log('❌ Error cargando imagen cliente:', e.target.src);
                         e.target.style.display = 'none';
                       }}
                     />
                   ) : (
-                    <div className={`w-15 h-15 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 flex-shrink-0 relative before:content-[''] before:absolute before:-top-0.5 before:-left-0.5 before:-right-0.5 before:-bottom-0.5 before:rounded-2xl before:bg-gradient-to-r before:from-transparent before:via-primary/20 before:to-transparent before:-z-[1] before:opacity-0 before:transition-all before:duration-300 group-hover:before:opacity-100 ${cliente.tipo === 'empresa' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'}`}>
+                    <div 
+                      className={`rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 flex-shrink-0 relative before:content-[''] before:absolute before:-top-0.5 before:-left-0.5 before:-right-0.5 before:-bottom-0.5 before:rounded-2xl before:bg-gradient-to-r before:from-transparent before:via-primary/20 before:to-transparent before:-z-[1] before:opacity-0 before:transition-all before:duration-300 group-hover:before:opacity-100 ${cliente.tipo === 'empresa' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'}`}
+                      style={{ width: '82px', height: '76px' }}
+                    >
                       <i className={`fas ${cliente.tipo === 'empresa' ? 'fa-building' : 'fa-user'}`}></i>
                     </div>
                   )}
@@ -326,10 +330,23 @@ const Clientes = () => {
         <ClienteForm
           cliente={selectedCliente}
           onClose={() => setShowModal(false)}
-          onSuccess={(newCliente) => {
-            console.log('✅ Cliente creado exitosamente:', newCliente);
+          onSuccess={(clienteActualizado) => {
+            console.log('✅ Cliente actualizado exitosamente:', clienteActualizado);
             setShowModal(false);
-            // Actualizar lista sin recargar página completa
+            
+            // Actualizar el cliente en la lista local inmediatamente
+            if (clienteActualizado && clienteActualizado.id) {
+              setClientes(prevClientes => 
+                prevClientes.map(cliente => 
+                  cliente.id === clienteActualizado.id 
+                    ? { ...cliente, ...clienteActualizado }
+                    : cliente
+                )
+              );
+              console.log('🔄 Cliente actualizado en lista local:', clienteActualizado);
+            }
+            
+            // También actualizar con refreshKey como respaldo
             setRefreshKey(prev => prev + 1);
           }}
         />

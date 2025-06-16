@@ -71,16 +71,21 @@ const ServicioForm = ({ servicio, onClose, activeTab = 0 }) => {
           const cliente = clientes.find(c => c.id === parseInt(formData.clienteId));
           setClienteSeleccionado(cliente);
           
-          if (cliente && cliente.equipos) {
-            console.log('✅ Equipos encontrados:', cliente.equipos.length);
-            setEquiposCliente(cliente.equipos);
+          if (cliente) {
+            // El backend SIEMPRE incluye equipos, así que confiamos en esos datos
+            const equipos = cliente.equipos || [];
+            console.log('✅ Equipos del cliente:', equipos.length);
+            setEquiposCliente(equipos);
+            
+            if (equipos.length === 0) {
+              console.log('⚠️ Cliente sin equipos registrados');
+            }
           } else {
-            // Si no están en la respuesta, cargar por separado
-            // TODO: Implementar API específica para equipos del cliente
+            console.log('⚠️ Cliente no encontrado en la lista');
             setEquiposCliente([]);
           }
         } catch (error) {
-          console.error('❌ Error cargando equipos:', error);
+          console.error('❌ Error procesando equipos:', error);
           setEquiposCliente([]);
         }
       } else {
@@ -366,23 +371,38 @@ const ServicioForm = ({ servicio, onClose, activeTab = 0 }) => {
           />
         </div>
 
-        {equiposCliente.length > 0 && (
-          <div className="form-group">
-            <label>Equipos a Intervenir: *</label>
-            <div className="equipos-checkbox-group">
-              {equiposCliente.map(equipo => (
-                <label key={equipo.id} className="checkbox-label">
-                  <input 
-                    type="checkbox"
-                    checked={formData.equipos.includes(equipo.id)}
-                    onChange={() => handleEquipoToggle(equipo.id)}
-                  />
-                  {equipo.tipo} {equipo.marca} {equipo.modelo} - {equipo.ubicacion}
-                </label>
-              ))}
+        <div className="form-group">
+          <label>Equipos a Intervenir: *</label>
+          {formData.clienteId ? (
+            equiposCliente.length > 0 ? (
+              <div className="equipos-checkbox-group">
+                {equiposCliente.map(equipo => (
+                  <label key={equipo.id} className="checkbox-label">
+                    <input 
+                      type="checkbox"
+                      checked={formData.equipos.includes(equipo.id)}
+                      onChange={() => handleEquipoToggle(equipo.id)}
+                    />
+                    {equipo.tipo} {equipo.marca} {equipo.modelo} - {equipo.ubicacion}
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3">
+                <i className="fas fa-exclamation-triangle text-yellow-600"></i>
+                <div>
+                  <p className="text-yellow-800 font-medium">No hay equipos registrados</p>
+                  <p className="text-yellow-600 text-sm">Este cliente aún no tiene equipos registrados. Agrega equipos antes de crear el servicio.</p>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center gap-3">
+              <i className="fas fa-info-circle text-gray-500"></i>
+              <p className="text-gray-600">Selecciona un cliente para ver sus equipos disponibles</p>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="form-group">
           <label htmlFor="observaciones">Observaciones:</label>

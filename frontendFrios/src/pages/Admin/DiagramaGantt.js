@@ -255,10 +255,10 @@ const DiagramaGantt = () => {
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value="todos">Todos los estados</option>
-              <option value="pendiente">Pendientes</option>
-              <option value="proceso">En proceso</option>
-              <option value="completado">Completados</option>
-              <option value="cancelado">Cancelados</option>
+              <option value="PENDIENTE">Pendientes</option>
+              <option value="PROCESO">En proceso</option>
+              <option value="COMPLETADO">Completados</option>
+              <option value="CANCELADO">Cancelados</option>
             </select>
 
             <select
@@ -516,7 +516,7 @@ const DiagramaGantt = () => {
                             : 'Sin cliente'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatearFecha(servicio.fecha)}
+                          {formatearFecha(servicio.fechaSolicitud)}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {servicio.descripcion}
@@ -526,9 +526,9 @@ const DiagramaGantt = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            servicio.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                            servicio.estado === 'proceso' ? 'bg-blue-100 text-blue-800' :
-                            servicio.estado === 'completado' ? 'bg-green-100 text-green-800' :
+                            servicio.estado === 'PENDIENTE' ? 'bg-yellow-100 text-yellow-800' :
+                            servicio.estado === 'PROCESO' ? 'bg-blue-100 text-blue-800' :
+                            servicio.estado === 'COMPLETADO' ? 'bg-green-100 text-green-800' :
                             'bg-red-100 text-red-800'
                           }`}>
                             {servicio.estado}
@@ -536,8 +536,8 @@ const DiagramaGantt = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            servicio.prioridad === 'alta' ? 'bg-red-100 text-red-800' :
-                            servicio.prioridad === 'media' ? 'bg-yellow-100 text-yellow-800' :
+                            servicio.prioridad === 'ALTA' ? 'bg-red-100 text-red-800' :
+                            servicio.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
                             {servicio.prioridad}

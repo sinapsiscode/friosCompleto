@@ -102,7 +102,7 @@ const TecnicoDashboard = () => {
   const misEvaluaciones = completados.filter(s => s.evaluacion);
   const promedioEvaluacion = misEvaluaciones.length > 0
     ? (misEvaluaciones.reduce((acc, s) => acc + (s.evaluacion?.calificacion || 0), 0) / misEvaluaciones.length).toFixed(1)
-    : 4.5; // Valor por defecto
+    : 0; // Mostrar 0 cuando no hay evaluaciones
 
   if (loading) {
     return (

@@ -98,9 +98,15 @@ const tecnicoService = {
       
       // Agregar datos del técnico
       Object.keys(tecnicoData).forEach(key => {
-        if (tecnicoData[key] !== null && tecnicoData[key] !== undefined) {
-          formData.append(key, tecnicoData[key]);
+        // Omitir solo campos que no son relevantes para el backend
+        if (key === 'id' || key === 'userId' || key === 'createdAt' || key === 'updatedAt' || key === 'usuario') {
+          return; // No enviar campos de metadata
         }
+        
+        // Enviar todos los demás campos, incluso si son null (el backend decidirá)
+        const value = tecnicoData[key];
+        formData.append(key, value === null ? '' : value);
+        console.log(`📤 FormData: ${key} = ${value}`);
       });
       
       // Agregar archivo de avatar si existe

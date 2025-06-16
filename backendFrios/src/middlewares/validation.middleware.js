@@ -55,20 +55,6 @@ const schemas = {
     disponibilidad: Joi.string().valid('DISPONIBLE', 'NO_DISPONIBLE', 'OCUPADO').optional()
   }),
 
-  updateTecnico: Joi.object({
-    nombre: Joi.string().min(2).max(50).optional(),
-    apellido: Joi.string().min(2).max(50).optional(),
-    email: Joi.string().email().optional(),
-    telefono: Joi.string().optional().allow(''),
-    direccion: Joi.string().optional().allow(''),
-    distrito: Joi.string().optional().allow(''),
-    dni: Joi.string().length(8).pattern(/^[0-9]+$/).optional().allow(''),
-    especialidad: Joi.string().valid('general', 'refrigeracion', 'aire_acondicionado', 'sistemas_comerciales', 'sistemas_industriales').optional(),
-    experiencia: Joi.number().integer().min(0).max(50).optional(),
-    certificaciones: Joi.string().optional().allow(''),
-    disponibilidad: Joi.string().valid('DISPONIBLE', 'NO_DISPONIBLE', 'OCUPADO').optional(),
-    isActive: Joi.boolean().optional()
-  }),
 
   // Clientes
   createCliente: Joi.object({
@@ -83,13 +69,20 @@ const schemas = {
   }),
 
   updateCliente: Joi.object({
-    nombre: Joi.string().min(2).max(50).optional(),
-    apellido: Joi.string().min(2).max(50).optional(),
+    nombre: Joi.string().min(2).max(50).optional().allow(''),
+    apellido: Joi.string().min(2).max(50).optional().allow(''),
     email: Joi.string().email().optional(),
-    telefono: Joi.string().pattern(/^[+]?[0-9\s\-()]{9,20}$/).optional(),
-    direccion: Joi.string().max(200).optional(),
+    telefono: Joi.string().pattern(/^[+]?[0-9\s\-()]{9,20}$/).optional().allow(''),
+    direccion: Joi.string().max(200).optional().allow(''),
+    ciudad: Joi.string().max(100).optional().allow(''),
+    distrito: Joi.string().max(100).optional().allow(''),
     tipo: Joi.string().valid('persona', 'empresa').optional(),
-    isActive: Joi.boolean().optional()
+    razonSocial: Joi.string().max(200).optional().allow(''),
+    ruc: Joi.string().pattern(/^[0-9]{11}$/).optional().allow(''),
+    dni: Joi.string().pattern(/^[0-9]{8}$/).optional().allow(''),
+    sector: Joi.string().max(100).optional().allow(''),
+    isActive: Joi.boolean().optional(),
+    profileImage: Joi.string().optional() // Para permitir el campo de imagen
   }),
 
   register: Joi.object({
@@ -200,12 +193,16 @@ const schemas = {
     nombre: Joi.string().min(2).max(50).optional(),
     apellido: Joi.string().min(2).max(50).optional(),
     email: Joi.string().email().optional(),
-    telefono: Joi.string().pattern(/^[+]?[0-9\s\-()]{9,20}$/).optional(),
-    direccion: Joi.string().max(200).optional(),
-    especialidad: Joi.string().max(100).optional(),
-    certificaciones: Joi.string().max(500).optional(),
-    disponibilidad: Joi.string().valid('DISPONIBLE', 'NO_DISPONIBLE', 'EN_SERVICIO').optional(),
-    isActive: Joi.boolean().optional()
+    telefono: Joi.string().pattern(/^[+]?[0-9\s\-()]{9,20}$/).optional().allow(''),
+    direccion: Joi.string().max(200).optional().allow(''),
+    distrito: Joi.string().max(100).optional().allow(''),
+    dni: Joi.string().pattern(/^[0-9]{8}$/).optional().allow(''),
+    especialidad: Joi.string().valid('general', 'refrigeracion', 'aire_acondicionado', 'sistemas_comerciales', 'sistemas_industriales').optional(),
+    experiencia: Joi.number().integer().min(0).max(50).optional(),
+    certificaciones: Joi.string().max(500).optional().allow(''),
+    disponibilidad: Joi.string().valid('DISPONIBLE', 'NO_DISPONIBLE', 'OCUPADO').optional(),
+    isActive: Joi.boolean().optional(),
+    profileImage: Joi.string().optional() // Para permitir el campo de imagen
   }),
 
   tecnico: Joi.object({

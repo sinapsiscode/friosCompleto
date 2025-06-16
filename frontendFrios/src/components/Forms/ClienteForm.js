@@ -210,7 +210,7 @@ const ClienteForm = ({ cliente, onClose, onSuccess }) => {
           console.log('➕ Creando nuevo cliente...');
           clienteData = {
             ...formData,
-            username: formData.username || formData.email.split('@')[0], // Generar username si no existe
+            username: formData.usuario || formData.email.split('@')[0], // Usar campo 'usuario' del formulario
             password: formData.password || '123456', // Contraseña por defecto si no se proporciona
             equipos: formData.equipos || [] // Asegurar que equipos sea un array
           };

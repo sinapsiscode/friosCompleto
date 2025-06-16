@@ -183,30 +183,13 @@ const TecnicoForm = ({ tecnico, onClose, onSuccess }) => {
         let tecnicoData;
         
         if (tecnico) {
-          // MODO EDICIÓN: Solo enviar campos que han cambiado
-          console.log('🔄 Actualizando técnico existente - solo campos modificados...');
-          tecnicoData = {};
-          
-          // Comparar cada campo y solo incluir los que han cambiado
-          Object.keys(formData).forEach(key => {
-            if (key === 'experiencia') {
-              const newValue = parseInt(formData[key]) || 0;
-              const originalValue = parseInt(originalData[key]) || 0;
-              if (newValue !== originalValue) {
-                tecnicoData[key] = newValue;
-                console.log(`🔄 Campo modificado: ${key} = ${originalValue} -> ${newValue}`);
-              }
-            } else {
-              const newValue = formData[key] || '';
-              const originalValue = originalData[key] || '';
-              if (newValue !== originalValue) {
-                tecnicoData[key] = newValue;
-                console.log(`🔄 Campo modificado: ${key} = "${originalValue}" -> "${newValue}"`);
-              }
-            }
-          });
-          
-          console.log('📝 Solo enviando campos modificados:', tecnicoData);
+          // MODO EDICIÓN: Enviar todos los campos, backend detecta cambios
+          console.log('🔄 Actualizando técnico existente - enviando todos los campos...');
+          tecnicoData = {
+            ...formData,
+            experiencia: parseInt(formData.experiencia) || 0
+          };
+          console.log('📝 Enviando todos los campos al backend:', tecnicoData);
           console.log('📷 Archivo de avatar:', avatarFile ? avatarFile.name : 'Sin cambio');
         } else {
           // MODO CREACIÓN: Enviar todos los datos

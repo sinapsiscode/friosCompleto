@@ -275,7 +275,8 @@ const Tecnicos = () => {
                     filename={tecnico.profileImage}
                     userType="tecnicos"
                     alt={`${tecnico.nombre} ${tecnico.apellido}`}
-                    className="w-16 h-16 rounded-2xl object-cover border-2 border-gray-200 mr-4"
+                    className="rounded-2xl object-cover object-center border-2 border-gray-200 mr-4"
+                    style={{ width: '82px', height: '76px' }}
                     fallbackIcon="fa-user"
                   />
                   <div className="flex-1 flex flex-col gap-3 min-w-0">
@@ -380,7 +381,8 @@ const Tecnicos = () => {
                           filename={tecnico.profileImage}
                           userType="tecnicos"
                           alt={`${tecnico.nombre} ${tecnico.apellido}`}
-                          className="w-10 h-10 rounded-2xl object-cover border-2 border-gray-200"
+                          className="rounded-2xl object-cover object-center border-2 border-gray-200"
+                          style={{ width: '82px', height: '76px' }}
                           fallbackIcon="fa-user"
                         />
                         <span>{tecnico.nombre} {tecnico.apellido}</span>
@@ -452,6 +454,13 @@ const Tecnicos = () => {
           onClose={() => setShowModal(false)}
           onSuccess={(newTecnico) => {
             console.log('✅ Técnico creado exitosamente:', newTecnico);
+            // Si es edición, actualizar los datos del técnico seleccionado
+            if (selectedTecnico) {
+              setSelectedTecnico(prev => ({
+                ...prev,
+                ...newTecnico
+              }));
+            }
             setShowModal(false);
             // Actualizar lista sin recargar página completa
             setRefreshKey(prev => prev + 1);
@@ -471,7 +480,8 @@ const Tecnicos = () => {
                     filename={historyTecnico.profileImage}
                     userType="tecnicos"
                     alt={`${historyTecnico.nombre} ${historyTecnico.apellido}`}
-                    className="w-12 h-12 rounded-xl object-cover"
+                    className="rounded-xl object-cover object-center"
+                    style={{ width: '82px', height: '76px' }}
                     fallbackIcon="fa-user"
                   />
                   <div>

@@ -38,6 +38,7 @@ export const ProfileImage = ({
   userType = 'tecnicos', 
   alt = 'Foto de perfil', 
   className = '',
+  style = {},
   fallbackIcon = 'fa-user' 
 }) => {
   const handleError = (e) => {
@@ -82,6 +83,7 @@ export const ProfileImage = ({
       src={imageUrl}
       alt={alt}
       className={className}
+      style={style}
       onError={handleError}
     />
   );

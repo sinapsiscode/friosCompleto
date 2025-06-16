@@ -305,25 +305,74 @@ const tecnicoController = {
       }
 
       console.log('🔍 Técnico actual encontrado:', tecnico.nombre, tecnico.apellido);
+      console.log('🔍 Datos actuales en BD:', {
+        experiencia: tecnico.experiencia,
+        dni: tecnico.dni,
+        distrito: tecnico.distrito
+      });
+      console.log('🔍 Datos recibidos del frontend:', {
+        experiencia: experiencia,
+        dni: dni,
+        distrito: distrito
+      });
 
       // Actualizar técnico y usuario en transacción
       const result = await prisma.$transaction(async (tx) => {
-        // Preparar datos para actualizar solo campos no vacíos
+        // Comparar datos actuales con los nuevos para detectar cambios
         const updateData = {};
+        console.log('🔄 Iniciando comparación de campos...');
         
-        // Solo agregar campos que tienen valor (no vacíos ni undefined)
-        if (nombre && nombre.trim()) updateData.nombre = nombre.trim();
-        if (apellido && apellido.trim()) updateData.apellido = apellido.trim();
-        if (email && email.trim()) updateData.email = email.trim();
-        if (telefono && telefono.trim()) updateData.telefono = telefono.trim();
-        if (direccion && direccion.trim()) updateData.direccion = direccion.trim();
-        if (especialidad && especialidad.trim()) updateData.especialidad = especialidad.trim();
-        if (certificaciones !== undefined) updateData.certificaciones = certificaciones; // Permitir vacío
-        if (disponibilidad && disponibilidad.trim()) updateData.disponibilidad = disponibilidad.trim();
-        if (distrito && distrito.trim()) updateData.distrito = distrito.trim();
-        if (dni && dni.trim()) updateData.dni = dni.trim();
-        if (experiencia !== undefined && experiencia !== null) updateData.experiencia = parseInt(experiencia) || 0;
-        if (isActive !== undefined) updateData.isActive = isActive;
+        // Función helper para comparar y agregar campos modificados
+        const addIfChanged = (field, newValue, currentValue, transform = (v) => v) => {
+          console.log(`🔍 Evaluando campo: ${field}`, {
+            newValue: newValue,
+            currentValue: currentValue,
+            isUndefined: newValue === undefined,
+            isNull: newValue === null
+          });
+          
+          // Solo procesar si el nuevo valor no es undefined/null
+          if (newValue === undefined || newValue === null) {
+            console.log(`⚠️ Campo ${field} ignorado: valor undefined/null`);
+            return; // No actualizar si no se envió el campo
+          }
+          
+          const normalizedNew = transform(newValue);
+          const normalizedCurrent = transform(currentValue);
+          
+          console.log(`🔍 Comparando ${field}:`, {
+            normalizedNew: normalizedNew,
+            normalizedCurrent: normalizedCurrent,
+            sonIguales: normalizedNew === normalizedCurrent
+          });
+          
+          // Solo actualizar si realmente son diferentes
+          if (normalizedNew !== normalizedCurrent) {
+            updateData[field] = normalizedNew;
+            console.log(`🔄 Campo modificado: ${field} = "${normalizedCurrent}" -> "${normalizedNew}"`);
+          } else {
+            console.log(`✅ Campo ${field} sin cambios`);
+          }
+        };
+
+        // Comparar todos los campos
+        addIfChanged('nombre', nombre, tecnico.nombre, v => v?.trim());
+        addIfChanged('apellido', apellido, tecnico.apellido, v => v?.trim());
+        addIfChanged('email', email, tecnico.email, v => v?.trim());
+        addIfChanged('telefono', telefono, tecnico.telefono, v => v?.trim());
+        addIfChanged('direccion', direccion, tecnico.direccion, v => v?.trim());
+        addIfChanged('especialidad', especialidad, tecnico.especialidad, v => v?.trim());
+        addIfChanged('disponibilidad', disponibilidad, tecnico.disponibilidad, v => v?.trim());
+        addIfChanged('distrito', distrito, tecnico.distrito, v => v?.trim());
+        addIfChanged('dni', dni, tecnico.dni, v => v?.trim());
+        addIfChanged('experiencia', experiencia, tecnico.experiencia, v => parseInt(v) || 0);
+        addIfChanged('isActive', isActive, tecnico.isActive);
+        
+        // Certificaciones puede ser null/vacío
+        if (certificaciones !== undefined && certificaciones !== tecnico.certificaciones) {
+          updateData.certificaciones = certificaciones;
+          console.log(`🔄 Campo modificado: certificaciones = "${tecnico.certificaciones}" -> "${certificaciones}"`);
+        }
         
         // Solo actualizar profileImage si se subió un nuevo archivo
         if (req.file) {
@@ -337,7 +386,23 @@ const tecnicoController = {
           console.log('📷 Actualizando profileImage a:', updateData.profileImage);
         }
         
-        console.log('📝 Campos a actualizar:', updateData);
+        console.log('📝 Campos finales a actualizar:', updateData);
+        console.log('📊 Total de campos a actualizar:', Object.keys(updateData).length);
+        
+        // Si no hay cambios, no hacer UPDATE
+        if (Object.keys(updateData).length === 0) {
+          console.log('⚠️ No hay cambios detectados, omitiendo UPDATE');
+          // Obtener el técnico actual sin modificar
+          const tecnicoSinCambios = await tx.tecnico.findUnique({
+            where: { id: parseInt(id) },
+            include: {
+              usuario: {
+                select: { id: true, username: true, email: true, isActive: true }
+              }
+            }
+          });
+          return tecnicoSinCambios;
+        }
         
         // Actualizar técnico solo con los campos que tienen datos
         const tecnicoActualizado = await tx.tecnico.update({
@@ -363,7 +428,17 @@ const tecnicoController = {
           });
         }
 
-        return tecnicoActualizado;
+        // Obtener el técnico completo actualizado con todas las relaciones
+        const tecnicoCompleto = await tx.tecnico.findUnique({
+          where: { id: parseInt(id) },
+          include: {
+            usuario: {
+              select: { id: true, username: true, email: true, isActive: true }
+            }
+          }
+        });
+
+        return tecnicoCompleto;
       });
 
       console.log('✅ Técnico actualizado exitosamente');
