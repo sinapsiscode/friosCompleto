@@ -278,26 +278,23 @@ const AdminDashboard = () => {
           </h3>
           <div className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">Total del Mes</span>
-              <span className="text-lg font-bold text-gray-900">{servicios.filter(s => {
-                const date = new Date(s.fechaProgramada);
-                return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-              }).length}</span>
+              <span className="text-sm font-medium text-gray-700">Total Servicios</span>
+              <span className="text-lg font-bold text-gray-900">{servicios.length}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-              <span className="text-sm font-medium text-blue-700">Programadas</span>
-              <span className="text-lg font-bold text-blue-900">{ordenesProgramadas}</span>
+              <span className="text-sm font-medium text-blue-700">Programados</span>
+              <span className="text-lg font-bold text-blue-900">{servicios.filter(s => s.tipoServicio === 'programado').length}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-              <span className="text-sm font-medium text-green-700">Completadas</span>
-              <span className="text-lg font-bold text-green-900">{ordenesRealizadas}</span>
+              <span className="text-sm font-medium text-green-700">Completados</span>
+              <span className="text-lg font-bold text-green-900">{servicios.filter(s => s.estado === 'COMPLETADO').length}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
               <span className="text-sm font-medium text-orange-700">En Proceso</span>
               <span className="text-lg font-bold text-orange-900">{servicios.filter(s => s.estado === 'PROCESO').length}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
-              <span className="text-sm font-medium text-red-700">Canceladas</span>
+              <span className="text-sm font-medium text-red-700">Cancelados</span>
               <span className="text-lg font-bold text-red-900">{servicios.filter(s => s.estado === 'CANCELADO').length}</span>
             </div>
           </div>

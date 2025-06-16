@@ -80,7 +80,7 @@ const OrdenesChart = ({ programadas, realizadas }) => {
       </div>
       
       {/* Progress Indicator */}
-      <div className="mt-6">
+      {/* <div className="mt-6">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium text-gray-700">Progreso del mes</span>
           <span className="text-sm font-medium text-gray-900">
@@ -93,7 +93,7 @@ const OrdenesChart = ({ programadas, realizadas }) => {
             style={{ width: programadas > 0 ? `${(realizadas / programadas) * 100}%` : '0%' }}
           ></div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };
